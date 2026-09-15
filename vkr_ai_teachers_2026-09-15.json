@@ -1,0 +1,1015 @@
+{
+  "format": "vkr-ai-teachers",
+  "version": 2,
+  "exported_at": "2026-09-15T11:19:32Z",
+  "teachers": [
+    {
+      "full_name": "Кизим Алексей Владимирович",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "профессор",
+      "email": null,
+      "telegram": "@SdelayTySam",
+      "phone": null,
+      "research_areas": [
+        "Системы искусственного интеллекта"
+      ],
+      "orcid": null,
+      "scopus_id": "55913501800",
+      "past_topics": [
+        {
+          "title": "Разработка подсистемы сбора и предобработки данных о состоянии производственной киберфизической системы",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 3,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка ИИ-ассистента для помощи в малом бизнесе",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 26,
+          "source_project": null,
+          "is_reference": false
+        },
+        {
+          "title": "Разработка подсистемы анализа данных о состоянии производственной киберфизической системы",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 38,
+          "source_project": null,
+          "is_reference": true
+        }
+      ]
+    },
+    {
+      "full_name": "Кравец Алла Григорьевна",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "профессор",
+      "email": null,
+      "telegram": "@AllaGK12",
+      "phone": null,
+      "research_areas": [
+        "Системы искусственного интеллекта"
+      ],
+      "orcid": "0000-0003-1675-8652",
+      "scopus_id": "57200583694",
+      "past_topics": [
+        {
+          "title": "Разработка интеллектуального ассистента для AI-архитектора",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 37,
+          "source_project": null,
+          "is_reference": false
+        },
+        {
+          "title": "Разработка Телеграм-бота для анализа каналов технологических новостей",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 47,
+          "source_project": null,
+          "is_reference": false
+        }
+      ]
+    },
+    {
+      "full_name": "Скоробогатченко Дмитрий Анатольевич",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "профессор",
+      "email": null,
+      "telegram": "@quickly_rich",
+      "phone": null,
+      "research_areas": [
+        "Системный анализ",
+        "Системы искусственного интеллекта"
+      ],
+      "orcid": "0000-0003-0280-0020",
+      "scopus_id": "57191257372",
+      "past_topics": [
+        {
+          "title": "Многоагентная система универсальной автоматизации и адаптивного управления бизнес-процессами университета",
+          "year": null,
+          "source_file": null,
+          "source_sheet": null,
+          "source_row": null,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Многоагентная система накопления и систематизации результатов студенческих практик для обеспечения преемственности научных разработок",
+          "year": null,
+          "source_file": null,
+          "source_sheet": null,
+          "source_row": null,
+          "source_project": null,
+          "is_reference": false
+        },
+        {
+          "title": "Многоагентная система глубинного изучения математических дисциплин с автогенерацией пермонализированных заданий",
+          "year": null,
+          "source_file": null,
+          "source_sheet": null,
+          "source_row": null,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Многоагентная система фиксации и управления историей разработки учебных и научных работ",
+          "year": null,
+          "source_file": null,
+          "source_sheet": null,
+          "source_row": null,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка мультимодальной системы оценки когнитивного состояния и прогнозирования рискованного поведения водителей  на основе компьютерного зрения",
+          "year": null,
+          "source_file": null,
+          "source_sheet": null,
+          "source_row": null,
+          "source_project": null,
+          "is_reference": true
+        }
+      ]
+    },
+    {
+      "full_name": "Щербаков Максим Владимирович",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "профессор",
+      "email": null,
+      "telegram": "@maximshcherbakov",
+      "phone": null,
+      "research_areas": [
+        "Системы искусственного интеллекта"
+      ],
+      "orcid": "0000-0001-7173-4499",
+      "scopus_id": "54978648200",
+      "past_topics": [
+        {
+          "title": "Разработка программы определения структуры потребления в электрической сети с использованием машинного обучения",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 31,
+          "source_project": null,
+          "is_reference": false
+        }
+      ]
+    },
+    {
+      "full_name": "Аль-Мерри Гаис Мохаммед Салех",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "доцент",
+      "email": "gaismr2009@mail.ru",
+      "telegram": null,
+      "phone": null,
+      "research_areas": [
+        "Базы данных и управление данными"
+      ],
+      "orcid": null,
+      "scopus_id": null,
+      "past_topics": [
+        {
+          "title": "Разработка программы прогнозирования спроса на городские курьерские услуги с использованием алгоритмов машинного обучения",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 2,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка веб-платформы для мониторинга и прогнозирования здоровья человека с использованием алгоритмов машинного обучения",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 4,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка веб-сервиса для оптимального распределения заказов между курьерами на основе алгоритмов теории графов и маршрутизации",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 42,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка веб-платформы для анализа и прогнозирования пользовательской активности на онлайн-сервисе с использованием алгоритмов машинного обучения",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 44,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка рейтингового модуля для цифровой платформы логистики с применением методов многокритериальной оценки",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 48,
+          "source_project": null,
+          "is_reference": true
+        }
+      ]
+    },
+    {
+      "full_name": "Гаврилов Андрей Евгеньевич",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "доцент",
+      "email": "krobotech@gmail.com",
+      "telegram": null,
+      "phone": null,
+      "research_areas": [
+        "Машиноведение и инженерная механика",
+        "Инжиниринг систем искусственного интеллекта",
+        "Киберфизические системы и технологии"
+      ],
+      "orcid": null,
+      "scopus_id": "54886465100",
+      "past_topics": []
+    },
+    {
+      "full_name": "Драгунов Станислав Евгеньевич",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "доцент",
+      "email": "dragunov.stanislav.e@gmail.com",
+      "telegram": null,
+      "phone": null,
+      "research_areas": [
+        "Мультимедийные и игровые технологии",
+        "Робототехника"
+      ],
+      "orcid": null,
+      "scopus_id": "57208509370",
+      "past_topics": [
+        {
+          "title": "Разработка методов интеллектуального управления шагающим роботом с применением лазерного детектирования",
+          "year": null,
+          "source_file": null,
+          "source_sheet": null,
+          "source_row": null,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка интеллектуальных  алгоритмов управления  шагающим роботом с  использованием компьютерного  зрения",
+          "year": null,
+          "source_file": null,
+          "source_sheet": null,
+          "source_row": null,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка системы захвата движений мимики лица",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 23,
+          "source_project": null,
+          "is_reference": false
+        },
+        {
+          "title": "Разрабока игры в жанре ... на движке Unity",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 24,
+          "source_project": null,
+          "is_reference": false
+        },
+        {
+          "title": "Разработка системы захвата движений тела",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 51,
+          "source_project": null,
+          "is_reference": false
+        }
+      ]
+    },
+    {
+      "full_name": "Земцов Андрей Николаевич",
+      "topic_count": 5,
+      "department": "ЭВМиС",
+      "position": "доцент",
+      "email": null,
+      "telegram": null,
+      "phone": null,
+      "research_areas": [
+        "Компьютерные сети и распределённые системы"
+      ],
+      "orcid": null,
+      "scopus_id": null,
+      "past_topics": [
+        {
+          "title": "Сравнение парадигм Retrieval-Augmented Generation (RAG) и разработка прототипа мобильного консультанта по законодательству РФ",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 33,
+          "source_project": null,
+          "is_reference": false
+        }
+      ]
+    },
+    {
+      "full_name": "Катаев Александр Вадимович",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "доцент",
+      "email": null,
+      "telegram": "@felisrattus",
+      "phone": null,
+      "research_areas": [
+        "Компьютерное зрение",
+        "Видеоаналитика",
+        "Распознавание изображений"
+      ],
+      "orcid": "0000-0002-7214-9432",
+      "scopus_id": "56104010600",
+      "past_topics": [
+        {
+          "title": "Разработка метода  проверки фотографий  пользователя на  соответствие  требованием  и формирования  мотивированного  заключения  на основе ИИ",
+          "year": null,
+          "source_file": null,
+          "source_sheet": null,
+          "source_row": null,
+          "source_project": null,
+          "is_reference": false
+        },
+        {
+          "title": "Разработка программы для измерения (либо подсчета) объектов с помощью камеры телефона",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 6,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка Telegram-бота для автоматизированной публикации объявлений с применением ИИ",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 11,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка программы для редактирования изображений на основе словестных описаний",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 36,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка информационной системы для юридической компании с интеграцией AI-модуля",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 55,
+          "source_project": null,
+          "is_reference": true
+        }
+      ]
+    },
+    {
+      "full_name": "Коробкин Дмитрий Михайлович",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "доцент",
+      "email": "dkorobkin80@mail.ru",
+      "telegram": null,
+      "phone": null,
+      "research_areas": [
+        "Компьютерная лингвистика",
+        "Компьютерная лингвистика и анализ текста",
+        "Компьютерная лингвистика и диалоговые системы"
+      ],
+      "orcid": "0000-0002-4684-1011",
+      "scopus_id": "55929981500",
+      "past_topics": [
+        {
+          "title": "Разработка программного модуля для выявления выполняемых физическими эффектами технических функций",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 7,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка программного модуля патентного поиска",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 21,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка программного модуля формирования морфологической таблицы для синтеза технических решений",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 45,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка программного модуля формирования онтологии “Структура изобретения\"",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 46,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка программного модуля вычисления критериальных оценок объектов на основе анализа патентного массива",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 49,
+          "source_project": null,
+          "is_reference": true
+        }
+      ]
+    },
+    {
+      "full_name": "Матохина Анна Владимировна",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "доцент",
+      "email": "matohina.a.v@yandex.ru",
+      "telegram": null,
+      "phone": null,
+      "research_areas": [
+        "Компьютерная графика",
+        "Робототехника"
+      ],
+      "orcid": null,
+      "scopus_id": "57212467166",
+      "past_topics": [
+        {
+          "title": "Разработка экзоскелета нижних конечностей",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 15,
+          "source_project": null,
+          "is_reference": false
+        }
+      ]
+    },
+    {
+      "full_name": "Тюков Антон Павлович",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "доцент",
+      "email": "Anton.tyukov@gmail.com",
+      "telegram": null,
+      "phone": null,
+      "research_areas": [
+        "Онтологическое моделирование систем топливно-энергетического комплекса",
+        "Энергетика в IT"
+      ],
+      "orcid": null,
+      "scopus_id": "54976648400",
+      "past_topics": [
+        {
+          "title": "Разработка программы АI поддержки процессов цифровой компании",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 9,
+          "source_project": null,
+          "is_reference": false
+        },
+        {
+          "title": "Разработка цифрового двойника компании для управления развитием проектов энергоперехода",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 10,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка системы потоковой обработки сенсорных данных в режиме реального времени",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 12,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка мультиагентной распределенной системы управления энергетическими сообществами в контексте энергоперехода",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 18,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка методов формирования оптимальной стратегии развития энергетической системы в контексте энергоперехода",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 22,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка системы верификации функционирования алгоритмов управления энергетическими активами",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 25,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка методов Оценки качества потоковых данных при управлении энергетическими активами в контексте энергоперехода",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 30,
+          "source_project": null,
+          "is_reference": true
+        }
+      ]
+    },
+    {
+      "full_name": "Шабалина Ольга Аркадьевна",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "доцент",
+      "email": "O.A.Shabalina@gmail.com",
+      "telegram": null,
+      "phone": null,
+      "research_areas": [
+        "Ассистивные технологии",
+        "Разработка обучающих игр"
+      ],
+      "orcid": "0000-0002-8160-306X",
+      "scopus_id": "55331038300",
+      "past_topics": [
+        {
+          "title": "Разработка рекомендательной системы для интернет-магазина продуктов питания",
+          "year": null,
+          "source_file": null,
+          "source_sheet": null,
+          "source_row": null,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка системы анализа достоверности автоматизированных систем",
+          "year": null,
+          "source_file": null,
+          "source_sheet": null,
+          "source_row": null,
+          "source_project": null,
+          "is_reference": false
+        },
+        {
+          "title": "Разработка методов управления игровыми объектами в играх жанра метроидвания",
+          "year": null,
+          "source_file": null,
+          "source_sheet": null,
+          "source_row": null,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка мобильного приложения с элементами геймификации для обучения программированию",
+          "year": null,
+          "source_file": null,
+          "source_sheet": null,
+          "source_row": null,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка обучающей диалоговой системы для консультирования по школьному курсу информатики",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 8,
+          "source_project": null,
+          "is_reference": true
+        }
+      ]
+    },
+    {
+      "full_name": "Яновский Тимур Александрович",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "доцент",
+      "email": null,
+      "telegram": null,
+      "phone": null,
+      "research_areas": [
+        "Системы поддержки принятия решений"
+      ],
+      "orcid": null,
+      "scopus_id": null,
+      "past_topics": [
+        {
+          "title": "Разработка модуля контроля геометрии технологической печи. Бэкенд",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 28,
+          "source_project": null,
+          "is_reference": true
+        }
+      ]
+    },
+    {
+      "full_name": "Сафонова Елена Владимировна",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": "преподаватель",
+      "email": null,
+      "telegram": "@safonova_vstu",
+      "phone": null,
+      "research_areas": [
+        "Чат-боты и диалоговые системы",
+        "Компьютерная лингвистика",
+        "Системы искусственного интеллекта"
+      ],
+      "orcid": "0009-0006-3798-6506",
+      "scopus_id": null,
+      "past_topics": [
+        {
+          "title": "Разработка интеллектуального Telegram-бота для автоматизированного информирования и консультирования по вопросам донорства крови с использованием LLM и RAG",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 16,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка централизованной платформы управления научной документацией",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 19,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка интеллектуального Telegram-бота с ReAct агентом для помощи абитуриентам в выборе образовательных программ при поступлении в университет",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 40,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка приложения для переноса стиля на изображение",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 56,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка платформы технической поддержки пользователей smart-устройств",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 57,
+          "source_project": null,
+          "is_reference": false
+        }
+      ]
+    },
+    {
+      "full_name": "Тарасов Павел Сергеевич",
+      "topic_count": 5,
+      "department": "САПРиПК, ЭВМиС",
+      "position": "преподаватель",
+      "email": null,
+      "telegram": null,
+      "phone": null,
+      "research_areas": [
+        "Компьютерные сети и распределённые системы"
+      ],
+      "orcid": null,
+      "scopus_id": "57195641522",
+      "past_topics": []
+    },
+    {
+      "full_name": "Астанков Алексей Александрович",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": null,
+      "email": null,
+      "telegram": null,
+      "phone": null,
+      "research_areas": [
+        "Геоинформационные системы"
+      ],
+      "orcid": null,
+      "scopus_id": null,
+      "past_topics": [
+        {
+          "title": "Разработка программного модуля разметки данных о парковочном пространстве",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 5,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка модуля мониторинга текущего состояния парковочной зоны",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 50,
+          "source_project": null,
+          "is_reference": true
+        }
+      ]
+    },
+    {
+      "full_name": "Башкирев Александр Михайлович",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": null,
+      "email": null,
+      "telegram": null,
+      "phone": null,
+      "research_areas": [],
+      "orcid": null,
+      "scopus_id": null,
+      "past_topics": [
+        {
+          "title": "Разработка игры в жанре пошаговая стратегия с системой искусственного интеллекта на основе поведенческих деревьев",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 17,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка стратегии реального времени с системой искусственного интеллекта на основе Unity ML Agents",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 20,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка игры в жанре Block Puzzle для веб платформ на Cocos Creator",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 35,
+          "source_project": null,
+          "is_reference": true
+        }
+      ]
+    },
+    {
+      "full_name": "Бондаренко Артем Геннадьевич",
+      "topic_count": 5,
+      "department": null,
+      "position": null,
+      "email": null,
+      "telegram": null,
+      "phone": null,
+      "research_areas": [],
+      "orcid": null,
+      "scopus_id": null,
+      "past_topics": [
+        {
+          "title": "Разработка системы анализа русскоязычных текстов с выделением тематических групп",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 29,
+          "source_project": null,
+          "is_reference": true
+        }
+      ]
+    },
+    {
+      "full_name": "Волчков Сергей Николаевич",
+      "topic_count": 5,
+      "department": "САПРиПК",
+      "position": null,
+      "email": null,
+      "telegram": "@chs_23",
+      "phone": null,
+      "research_areas": [
+        "Системы искусственного интеллекта"
+      ],
+      "orcid": null,
+      "scopus_id": null,
+      "past_topics": []
+    },
+    {
+      "full_name": "Главацкая Софья Владимировна",
+      "topic_count": 5,
+      "department": null,
+      "position": null,
+      "email": null,
+      "telegram": null,
+      "phone": null,
+      "research_areas": [],
+      "orcid": null,
+      "scopus_id": null,
+      "past_topics": [
+        {
+          "title": "Разработка компьютерной игры на Unity в жанре «Метроидвания» с динамической системой восприятия персонажа",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 13,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Проектирование и реализация сюжетно-ориентированной point-and-click игры на движке Unity с использованием уникальных визуальных ассетов",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 14,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка системы динамических диалогов: Использование ИИ для адаптации разговоров NPC в ролевых играх",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 41,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разработка back-end модуля учебного портала с ИИ-ассистентом для поддержки пользователей",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 53,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "PC Mate: Разработка ИИ-компаньона для выбора комплектующих с учетом предпочтений и бюджета",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 54,
+          "source_project": null,
+          "is_reference": false
+        }
+      ]
+    },
+    {
+      "full_name": "Руженников Алексей Александрович",
+      "topic_count": 5,
+      "department": null,
+      "position": null,
+      "email": null,
+      "telegram": null,
+      "phone": null,
+      "research_areas": [],
+      "orcid": null,
+      "scopus_id": null,
+      "past_topics": [
+        {
+          "title": "Разработка модуля адаптивного круиз-контроля для электробуса с учетом рельефа местности",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 34,
+          "source_project": null,
+          "is_reference": true
+        }
+      ]
+    },
+    {
+      "full_name": "Струкова Инна Владимировна",
+      "topic_count": 5,
+      "department": null,
+      "position": null,
+      "email": null,
+      "telegram": null,
+      "phone": null,
+      "research_areas": [],
+      "orcid": null,
+      "scopus_id": null,
+      "past_topics": [
+        {
+          "title": "Разработка программы управления ключевыми показателями эффективности сотрудников центра ИИ",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 39,
+          "source_project": null,
+          "is_reference": true
+        }
+      ]
+    },
+    {
+      "full_name": "Укустов Сергей Сергеевич",
+      "topic_count": 5,
+      "department": null,
+      "position": null,
+      "email": null,
+      "telegram": null,
+      "phone": null,
+      "research_areas": [],
+      "orcid": null,
+      "scopus_id": null,
+      "past_topics": [
+        {
+          "title": "Делегация оплаты на искусственный интеллект",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 27,
+          "source_project": null,
+          "is_reference": false
+        }
+      ]
+    },
+    {
+      "full_name": "Хайров Александр Валерьевич",
+      "topic_count": 5,
+      "department": null,
+      "position": null,
+      "email": null,
+      "telegram": null,
+      "phone": null,
+      "research_areas": [],
+      "orcid": null,
+      "scopus_id": null,
+      "past_topics": [
+        {
+          "title": "Разработка адаптивной обучающей игры \"Средаземье\" на движке Godot",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 32,
+          "source_project": null,
+          "is_reference": false
+        },
+        {
+          "title": "Разработка инструмента для процедурной генераций игрового лута для игр в жанре шутер на движке Unreal Engine",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 43,
+          "source_project": null,
+          "is_reference": true
+        },
+        {
+          "title": "Разрабока адаптивной игры в жанре шутер на движке Unreal Engine",
+          "year": 2026,
+          "source_file": "ВКР_2026_преподаватели_и_темы.xlsx",
+          "source_sheet": "Темы ВКР",
+          "source_row": 52,
+          "source_project": null,
+          "is_reference": false
+        }
+      ]
+    }
+  ]
+}
