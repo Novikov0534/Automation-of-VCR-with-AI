@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..models import GeneratedTopic, GenerationBatchTopic, PastTopic, QualityEvaluationRun, Teacher
 from ..utils import teacher_table_name
+from .research_taxonomy import profile_relevance_details
 
 WORD_RE = re.compile(r"[A-Za-zА-Яа-яЁё0-9+#./-]+")
 
@@ -104,7 +105,16 @@ def _heuristic_items(topics: list[GeneratedTopic]) -> list[dict]:
         specificity = reference_quality_score(topic.title)
         practicality = practicality_score(topic.title, topic.rationale)
         novelty = clamp(100.0 - float(topic.global_similarity_score or topic.similarity_score or 0.0))
-        teacher_fit = teacher_fit_from_similarity(float(topic.teacher_similarity_score or 0.0), bool(history))
+        profile = profile_relevance_details(
+            topic.title,
+            rationale=topic.rationale,
+            keywords=topic.keywords or [],
+            research_areas=topic.teacher.research_areas or [],
+            past_topics=[item.title for item in history],
+        )
+        teacher_fit = profile.score if ((topic.teacher.research_areas or []) or history) else teacher_fit_from_similarity(
+            float(topic.teacher_similarity_score or 0.0), bool(history)
+        )
         overall = clamp(mean([teacher_fit, specificity, practicality, novelty]))
         items.append({
             "topic_id": topic.id,

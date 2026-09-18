@@ -148,7 +148,7 @@ export default function SettingsModal({
           {tab === "ai" && (
             <div className="settings-section">
               <div className="settings-status-row primary-provider">
-                <div><b>Mistral API</b><span>Генерация новых тем + дополнительный семантический сигнал для проверки сходства</span></div>
+                <div><b>Mistral API</b><span>Генерация новых тем. Проверка похожести v30 выполняется локально и не расходует Mistral API</span></div>
                 <StatusPill value={mistralCheck}/>
               </div>
               {mistralCheck.detail && <div className={`connection-detail ${mistralCheck.status}`}>{mistralCheck.detail}</div>}
@@ -159,16 +159,16 @@ export default function SettingsModal({
               {settings.mistral_configured && !clearMistral && <button type="button" className="credential-reset" onClick={() => { setClearMistral(true); set("mistral_api_key", ""); setMistralCheck(FALLBACK_CHECK); }}>Сбросить сохранённый ключ Mistral</button>}
               {clearMistral && <div className="credential-reset-note">Ключ Mistral будет удалён после сохранения настроек.</div>}
               <div className="grid-2">
-                <label className="field"><span>Модель генерации</span><input value={form.mistral_chat_model} onChange={(e) => set("mistral_chat_model", e.target.value)} placeholder="mistral-small-latest" /></label>
-                <label className="field"><span>Модель эмбеддингов</span><input value={form.mistral_embedding_model} onChange={(e) => set("mistral_embedding_model", e.target.value)} placeholder="mistral-embed" /></label>
+                <label className="field"><span>Модель генерации</span><input value={form.mistral_chat_model} onChange={(e) => set("mistral_chat_model", e.target.value)} placeholder="ministral-8b-2512" /></label>
+                <label className="field"><span>Mistral embeddings (legacy)</span><input value={form.mistral_embedding_model} onChange={(e) => set("mistral_embedding_model", e.target.value)} placeholder="mistral-embed" /><small>Не используется для проверки дублей: similarity работает локально.</small></label>
               </div>
               <button type="button" className="btn secondary connection-test-btn" onClick={checkMistral} disabled={checking === "mistral"}>{checking === "mistral" ? "Проверяем…" : "Проверить Mistral"}</button>
               <div className="ai-routing-card">
-                <div><span>Основная модель</span><b>{form.mistral_chat_model || "mistral-small-latest"}</b></div>
+                <div><span>Генерация тем</span><b>{form.mistral_chat_model || "ministral-8b-2512"}</b></div>
                 <div className="routing-arrow">→</div>
-                <div><span>Embeddings</span><b>{form.mistral_embedding_model || "mistral-embed"}</b></div>
+                <div><span>Проверка дублей</span><b>local multilingual embeddings</b></div>
               </div>
-              <div className="settings-note">Mistral работает в общей последовательной очереди: не чаще одного запроса каждые 1,25 секунды. При временном HTTP 429 backend автоматически повторяет запрос через 2, 4 и 8 секунд. Генерация тем и проверка сходства выполняются пакетно; если embeddings недоступны, similarity переходит на локальный режим.</div>
+              <div className="settings-note">Режим качества v30: один batch по умолчанию генерируется одной выбранной Mistral-моделью, без тихого перехода на 3B. После ответа каждая тема локально проверяется на соответствие профилю и семантические дубли. Локальный банк никогда не подмешивается в AI-режим; он доступен только отдельной кнопкой «Демо без ИИ».</div>
             </div>
           )}
 

@@ -1089,3 +1089,69 @@ h2 { letter-spacing: -.02em; font-weight: 650; color: var(--ink); }
   .ai-routing-card { grid-template-columns: 1fr; }
   .ai-routing-card .routing-arrow { transform: rotate(90deg); justify-self: start; }
 }
+
+/* v24: реальный прогресс массовой генерации */
+.generation-progress {
+  margin: 14px 0 2px;
+  padding: 12px;
+  border: 1px solid rgba(96, 165, 250, .22);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, .42);
+}
+.generation-progress-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.generation-progress-head b { font-size: 11px; color: #dbeafe; }
+.generation-progress-head span { font-family: var(--mono); font-size: 11px; color: #93c5fd; }
+.generation-progress-track { height: 7px; margin: 9px 0 7px; overflow: hidden; border-radius: 999px; background: rgba(148, 163, 184, .16); }
+.generation-progress-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #60a5fa, #a78bfa); transition: width .25s ease; }
+.generation-progress small { color: #94a3b8; font-size: 10px; line-height: 1.35; }
+
+/* v27: явное происхождение тем и отдельный demo-режим */
+.demo-generation-button {
+  margin-top: 10px;
+  width: 100%;
+}
+.topic-source-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+  flex-wrap: wrap;
+}
+.topic-source-line > small {
+  opacity: .65;
+  font-size: 11px;
+}
+.topic-source-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  border: 1px solid rgba(148, 163, 184, .25);
+}
+.topic-source-badge.ai {
+  background: rgba(16, 185, 129, .12);
+  border-color: rgba(16, 185, 129, .32);
+}
+.topic-source-badge.demo {
+  background: rgba(245, 158, 11, .12);
+  border-color: rgba(245, 158, 11, .35);
+}
+.topic-source-badge.legacy {
+  background: rgba(148, 163, 184, .10);
+}
+
+/* v30: профильная поствалидация AI-тем */
+.profile-areas { display:block; margin-top:6px; max-width:190px; line-height:1.35; opacity:.72; }
+
+.profile-warning { color: #b42318; font-weight: 700; }
+
+/* v33: отдельный статус локального Quality Gate */
+.quality-gate { display:inline-flex; align-items:center; gap:4px; padding:5px 8px; border-radius:999px; font-size:10px; font-weight:700; white-space:nowrap; }
+.quality-gate.passed { background:rgba(28,190,120,.12); color:#58d7a0; border:1px solid rgba(88,215,160,.28); }
+.quality-gate.review { background:rgba(236,184,58,.12); color:#f0c75e; border:1px solid rgba(240,199,94,.28); }
+.quality-gate.blocked { background:rgba(244,80,96,.12); color:#ff7786; border:1px solid rgba(255,119,134,.30); }

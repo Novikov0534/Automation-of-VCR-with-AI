@@ -52,6 +52,32 @@ BATCH_TOPICS_RESPONSE_SCHEMA = {
     "additionalProperties": False,
 }
 
+# V34: максимально компактная схема для основного/repair batch-запроса.
+# Mistral генерирует только названия: rationale/keywords не нужны для Quality Gate
+# и заметно увеличивали structured-output latency на free-tier.
+BATCH_TITLES_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "teachers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "teacher_id": {"type": "integer"},
+                    "titles": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": ["teacher_id", "titles"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["teachers"],
+    "additionalProperties": False,
+}
+
 
 class MistralAPIError(RuntimeError):
     """Понятная ошибка Mistral API с HTTP-кодом и сообщением сервиса."""
@@ -163,6 +189,7 @@ class MistralClient:
     def __init__(self, settings=None) -> None:
         self.settings = settings or get_settings()
         self.base_url = "https://api.mistral.ai/v1"
+        self.last_chat_model: str | None = None
 
     @property
     def available(self) -> bool:
@@ -170,7 +197,7 @@ class MistralClient:
 
     @property
     def chat_model(self) -> str:
-        return str(getattr(self.settings, "mistral_chat_model", "mistral-small-latest") or "mistral-small-latest")
+        return str(getattr(self.settings, "mistral_chat_model", "ministral-8b-2512") or "ministral-8b-2512")
 
     @property
     def embedding_model(self) -> str:
@@ -202,12 +229,14 @@ class MistralClient:
     def _raise_api_error(response: httpx.Response, endpoint: str, model: str | None = None) -> None:
         if response.status_code < 400:
             return
-        message = _mistral_error_message(response)
+        raw_message = _mistral_error_message(response)
+        message = raw_message
         if response.status_code == 429:
+            model_hint = f" для модели {model}" if model else ""
             message = (
-                "Mistral API временно недоступен из-за ограничения бесплатного тарифа. "
-                "Автоматические повторы через 2, 4 и 8 секунд не помогли; "
-                "повторите операцию через несколько секунд."
+                f"Mistral API вернул HTTP 429{model_hint}. "
+                "Автоматические повторы через 2, 4 и 8 секунд не помогли. "
+                f"Ответ сервиса: {raw_message}"
             )
         raise MistralAPIError(
             response.status_code,
@@ -296,45 +325,72 @@ class MistralClient:
         model: str | None = None,
         schema: dict[str, Any] | None = None,
         max_tokens: int = 12000,
+        request_timeout: float = 120.0,
     ) -> dict[str, Any]:
         selected_model = (model or self.chat_model).strip()
         response_schema = schema or TOPICS_RESPONSE_SCHEMA
-        payload = {
-            "model": selected_model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "vkr_topics",
-                    "schema": response_schema,
-                    "strict": True,
+
+        # На Free-тарифе лимиты Mistral различаются по моделям. Если основная
+        # модель исчерпала свой rate limit, один раз пробуем Ministral 3 8B,
+        # который поддерживает structured outputs и обычно имеет более высокий
+        # RPS/TPM. Это по-прежнему реальная AI-генерация через Mistral;
+        # локальный demo-банк здесь никогда не используется.
+        model_candidates = [selected_model]
+        free_fallback = "ministral-8b-2512"
+        if selected_model != free_fallback:
+            model_candidates.append(free_fallback)
+
+        last_error: Exception | None = None
+        for candidate_model in model_candidates:
+            payload = {
+                "model": candidate_model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "vkr_topics",
+                        "schema": response_schema,
+                        "strict": True,
+                    },
                 },
-            },
-        }
-        endpoint = f"{self.base_url}/chat/completions"
-        response = await self._post_with_retry(endpoint, payload, model=selected_model)
-        data = response.json()
-        content = _extract_message_text(data)
-        if not content:
-            finish_reason = None
+            }
+            endpoint = f"{self.base_url}/chat/completions"
             try:
-                finish_reason = data.get("choices", [{}])[0].get("finish_reason")
-            except Exception:
-                pass
-            raise RuntimeError(f"Mistral вернул ответ без текста (finish_reason={finish_reason or 'unknown'})")
-        if content.startswith("```"):
-            content = content.strip("`")
-            if content.lower().startswith("json"):
-                content = content[4:].strip()
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError as exc:
-            raise RuntimeError(f"Mistral вернул некорректный JSON: {exc.msg}") from exc
+                response = await self._post_with_retry(endpoint, payload, model=candidate_model, timeout=request_timeout)
+            except MistralAPIError as exc:
+                last_error = exc
+                if exc.status_code == 429 and candidate_model != model_candidates[-1]:
+                    continue
+                raise
+
+            data = response.json()
+            content = _extract_message_text(data)
+            if not content:
+                finish_reason = None
+                try:
+                    finish_reason = data.get("choices", [{}])[0].get("finish_reason")
+                except Exception:
+                    pass
+                raise RuntimeError(f"Mistral вернул ответ без текста (finish_reason={finish_reason or 'unknown'})")
+            if content.startswith("```"):
+                content = content.strip("`")
+                if content.lower().startswith("json"):
+                    content = content[4:].strip()
+            try:
+                parsed = json.loads(content)
+                self.last_chat_model = candidate_model
+                return parsed
+            except json.JSONDecodeError as exc:
+                raise RuntimeError(f"Mistral вернул некорректный JSON: {exc.msg}") from exc
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("Mistral не вернул ответ")
 
     async def embeddings(self, texts: list[str], *, model: str | None = None) -> list[list[float]]:
         if not texts:

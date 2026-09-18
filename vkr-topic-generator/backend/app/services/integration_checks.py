@@ -47,7 +47,7 @@ async def check_mistral(
     if any(ch.isspace() for ch in key):
         return IntegrationCheckResult("error", "неверный API-ключ", "В API-ключе Mistral не должно быть пробелов или переносов строки.")
 
-    chat = _clean(chat_model) or "mistral-small-latest"
+    chat = _clean(chat_model) or "ministral-8b-2512"
     embed = _clean(embedding_model) or "mistral-embed"
 
     # Обычное чтение статуса не должно расходовать бесплатный RPS Mistral.
@@ -56,8 +56,8 @@ async def check_mistral(
         return IntegrationCheckResult(
             "connected",
             "настроен",
-            f"Ключ Mistral сохранён. Генерация: {chat}; embeddings: {embed}. "
-            "Для полного теста нажмите «Проверить Mistral».",
+            f"Ключ Mistral сохранён. Генерация: {chat}. "
+            "Проверка дублей выполняется локально; для полного теста ключа нажмите «Проверить Mistral».",
         )
 
     runtime = SimpleNamespace(
@@ -87,51 +87,16 @@ async def check_mistral(
         return IntegrationCheckResult("error", "ошибка подключения", f"Проверка Mistral завершилась ошибкой: {type(exc).__name__}: {exc}")
 
     if live_probe:
-        try:
-            result = await mistral.chat_json(
-                system="Ты проверяешь техническое подключение. Верни одну короткую тестовую тему ВКР в JSON.",
-                user="Сформируй одну тестовую тему по информационным технологиям.",
-                temperature=0.1,
-                max_tokens=600,
-            )
-            topics = result.get("topics") if isinstance(result, dict) else None
-            if not isinstance(topics, list) or not topics:
-                return IntegrationCheckResult("error", "ошибка генерации", "Mistral ответил, но не вернул тестовую тему в ожидаемой JSON-структуре.")
-        except MistralAPIError as exc:
-            if exc.status_code == 429:
-                return IntegrationCheckResult("error", "временное ограничение", str(exc))
-            if exc.status_code in {401, 403}:
-                return IntegrationCheckResult("error", "нет доступа", f"Mistral отклонил ключ/доступ (HTTP {exc.status_code}): {exc}")
-            if exc.status_code == 404:
-                return IntegrationCheckResult("error", "модель не найдена", f"Mistral вернул HTTP 404 для модели генерации: {exc}")
-            if exc.status_code == 400:
-                return IntegrationCheckResult("error", "ошибка запроса", f"Mistral вернул HTTP 400 для тестовой генерации: {exc}")
-            return IntegrationCheckResult("error", "ошибка Mistral", f"Mistral вернул HTTP {exc.status_code}: {exc}")
-        except Exception as exc:
-            return IntegrationCheckResult("error", "ошибка генерации", f"Реальный тест Mistral: {type(exc).__name__}: {exc}")
-
-        # Embeddings полезны для дополнительного смыслового сигнала, но не должны
-        # блокировать основную генерацию тем. Если Free mode/текущая квота не даёт
-        # доступ к mistral-embed, SimilarityService автоматически использует
-        # локальный lexical fallback.
-        try:
-            vectors = await mistral.embeddings(["проверка семантического сходства тем ВКР"])
-            if vectors and vectors[0]:
-                return IntegrationCheckResult(
-                    "connected",
-                    "подключён и проверен",
-                    f"Генерация и embeddings работают. Генерация: {chat}; embeddings: {embed}.",
-                )
-            embedding_note = "Mistral Embeddings не вернул тестовый вектор"
-        except MistralAPIError as exc:
-            embedding_note = f"embeddings временно недоступны (HTTP {exc.status_code}: {exc})"
-        except Exception as exc:
-            embedding_note = f"embeddings временно недоступны ({type(exc).__name__}: {exc})"
-
+        # Лёгкая проверка: GET /models уже подтверждает валидность ключа и доступ к workspace.
+        # Не делаем тестовый chat/completions и embeddings: на Free-тарифе такая «проверка»
+        # сама расходует RPS/TPM и раньше могла показывать красный 429 при полностью рабочем ключе.
+        mass_route = chat if chat.startswith("ministral-") else "ministral-8b-2512"
         return IntegrationCheckResult(
             "connected",
-            "генерация подключена",
-            f"Генерация Mistral работает ({chat}); {embedding_note}. Проверка сходства автоматически перейдёт на локальный режим.",
+            "подключён",
+            f"Ключ подтверждён Mistral API. Модель в настройках: {chat}. "
+            f"Маршрут массовой генерации: {mass_route}. Реальный chat-запрос выполняется только при генерации тем. "
+            "Проверка похожести выполняется локально, поэтому не зависит от лимитов Mistral embeddings.",
         )
 
     raise RuntimeError("Недостижимая ветвь проверки Mistral")

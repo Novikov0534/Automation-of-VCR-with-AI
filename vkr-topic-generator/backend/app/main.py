@@ -63,9 +63,10 @@ from .services.evaluation import reference_quality_score, refresh_reference_set,
 from .services.generator import TopicGenerator
 from .services.integration_checks import check_mistral, check_google
 from .services.research_taxonomy import RESEARCH_AREA_NAMES
-from .services.similarity import SimilarityService, SIMILARITY_HIGH_THRESHOLD, SIMILARITY_REVIEW_THRESHOLD
+from .services.similarity import SimilarityService, SIMILARITY_HIGH_THRESHOLD, SIMILARITY_REVIEW_THRESHOLD, thresholds_for_method
 from .services.xlsx_exporter import build_topics_xlsx
 from .services.xlsx_importer import DetectedTopic, detect_historical_topics
+from .services.research_taxonomy import profile_relevance_details
 from .utils import teacher_table_name
 
 settings = get_settings()
@@ -110,9 +111,20 @@ def ensure_compatible_columns() -> None:
         ("global_similarity_score", "FLOAT DEFAULT 0"),
         ("global_closest_topic", "TEXT"),
         ("global_closest_teacher", "VARCHAR(255)"),
+        ("batch_similarity_score", "FLOAT DEFAULT 0"),
+        ("batch_closest_topic", "TEXT"),
+        ("batch_closest_teacher", "VARCHAR(255)"),
+        ("batch_similarity_method", "VARCHAR(50) DEFAULT 'none'"),
         ("source_past_topic_id", "INTEGER"),
         ("teacher_similarity_method", "VARCHAR(50) DEFAULT 'none'"),
         ("global_similarity_method", "VARCHAR(50) DEFAULT 'none'"),
+        ("generation_source", "VARCHAR(32) DEFAULT 'legacy'"),
+        ("generation_model", "VARCHAR(255)"),
+        ("profile_relevance_score", "FLOAT"),
+        ("matched_research_areas", "JSON"),
+        ("profile_directions", "JSON"),
+        ("foreign_profile_directions", "JSON"),
+        ("profile_relevance_method", "VARCHAR(80)"),
     ]:
         _add_column_if_missing("generated_topics", name, ddl)
 
@@ -128,6 +140,29 @@ def ensure_compatible_columns() -> None:
 
 
 ensure_compatible_columns()
+
+
+def backfill_generation_provenance() -> None:
+    """Помечает очевидные локальные demo-темы из старых версий.
+
+    Для старых AI-тем источник надёжно восстановить нельзя, поэтому они остаются
+    `legacy` и интерфейс честно показывает «Источник не зафиксирован».
+    """
+    with engine.begin() as connection:
+        connection.execute(text(
+            """
+            UPDATE generated_topics
+            SET generation_source = 'local-demo', generation_model = NULL
+            WHERE COALESCE(generation_source, 'legacy') = 'legacy'
+              AND (
+                LOWER(COALESCE(rationale, '')) LIKE '%демонстрационная тема из встроенного банка%'
+                OR LOWER(COALESCE(rationale, '')) LIKE '%повтор встроенной демонстрационной темы%'
+              )
+            """
+        ))
+
+
+backfill_generation_provenance()
 
 
 def clear_removed_ai_provider_secrets() -> None:
@@ -223,6 +258,48 @@ def topic_ordering():
 def topic_to_schema(topic: GeneratedTopic) -> TopicRead:
     global_score = float(topic.global_similarity_score or topic.similarity_score or 0.0)
     global_closest = topic.global_closest_topic or topic.closest_past_topic
+    computed_profile = profile_relevance_details(
+        topic.title,
+        rationale=topic.rationale,
+        keywords=topic.keywords or [],
+        research_areas=topic.teacher.research_areas or [],
+        past_topics=[item.title for item in topic.teacher.past_topics],
+    )
+    stored_profile_score = getattr(topic, "profile_relevance_score", None)
+    profile_score = float(stored_profile_score) if stored_profile_score is not None else computed_profile.score
+    matched_research_areas = list(getattr(topic, "matched_research_areas", None) or computed_profile.matched_research_areas)
+    profile_directions = list(getattr(topic, "profile_directions", None) or computed_profile.matched_directions)
+    foreign_profile_directions = list(getattr(topic, "foreign_profile_directions", None) or computed_profile.foreign_directions)
+    profile_method = getattr(topic, "profile_relevance_method", None) or "local-taxonomy-v30"
+
+    quality_reasons: list[str] = []
+    quality_state = "passed"
+    if profile_score < 40 and not matched_research_areas:
+        quality_state = "blocked"
+        quality_reasons.append(f"слабое соответствие профилю: {profile_score:.0f}/100")
+    elif profile_score < 55 and not matched_research_areas:
+        quality_state = "review"
+        quality_reasons.append(f"пограничное соответствие профилю: {profile_score:.0f}/100")
+    if foreign_profile_directions:
+        if not matched_research_areas:
+            quality_state = "blocked"
+        elif quality_state == "passed":
+            quality_state = "review"
+        quality_reasons.append("возможное чужое направление: " + ", ".join(foreign_profile_directions[:2]))
+
+    similarity_checks = [
+        (float(topic.teacher_similarity_score or 0.0), getattr(topic, "teacher_similarity_method", None) or "none", "прошлая тема преподавателя"),
+        (float(getattr(topic, "batch_similarity_score", 0.0) or 0.0), getattr(topic, "batch_similarity_method", None) or "none", "другая тема текущего набора"),
+    ]
+    for score, method, label in similarity_checks:
+        review_threshold, high_threshold = thresholds_for_method(method)
+        if method == "exact-duplicate" or score >= high_threshold:
+            quality_state = "blocked"
+            quality_reasons.append(f"высокая похожесть с {label}: {score:.0f}/100")
+        elif score >= review_threshold and quality_state != "blocked":
+            quality_state = "review"
+            quality_reasons.append(f"проверить похожесть с {label}: {score:.0f}/100")
+
     return TopicRead(
         id=topic.id,
         teacher_id=topic.teacher_id,
@@ -231,6 +308,13 @@ def topic_to_schema(topic: GeneratedTopic) -> TopicRead:
         title=topic.title,
         rationale=topic.rationale,
         keywords=topic.keywords or [],
+        generation_source=getattr(topic, "generation_source", None) or "legacy",
+        generation_model=getattr(topic, "generation_model", None),
+        profile_relevance_score=profile_score,
+        matched_research_areas=matched_research_areas,
+        profile_directions=profile_directions,
+        foreign_profile_directions=foreign_profile_directions,
+        profile_relevance_method=profile_method,
         similarity_score=round(global_score, 1),
         closest_past_topic=global_closest,
         teacher_similarity_score=round(float(topic.teacher_similarity_score or 0.0), 1),
@@ -238,9 +322,15 @@ def topic_to_schema(topic: GeneratedTopic) -> TopicRead:
         global_similarity_score=round(global_score, 1),
         global_closest_topic=global_closest,
         global_closest_teacher=topic.global_closest_teacher,
+        batch_similarity_score=round(float(getattr(topic, "batch_similarity_score", 0.0) or 0.0), 1),
+        batch_closest_topic=getattr(topic, "batch_closest_topic", None),
+        batch_closest_teacher=getattr(topic, "batch_closest_teacher", None),
         similarity_method=topic.similarity_method,
         teacher_similarity_method=getattr(topic, "teacher_similarity_method", None) or "none",
         global_similarity_method=getattr(topic, "global_similarity_method", None) or topic.similarity_method or "none",
+        batch_similarity_method=getattr(topic, "batch_similarity_method", None) or "none",
+        quality_state=quality_state,
+        quality_reasons=quality_reasons,
         status=topic.status,
         manual_edit=topic.manual_edit,
         created_at=topic.created_at,
@@ -263,8 +353,12 @@ def batch_to_schema(batch: GenerationBatch, db: Session) -> GenerationBatchRead:
         GeneratedTopic.global_similarity_method == "exact-duplicate",
         GeneratedTopic.similarity_method == "exact-duplicate",
         and_(
-            GeneratedTopic.global_similarity_method.in_(["hybrid-mistral", "hybrid-lexical"]),
+            GeneratedTopic.global_similarity_method == "local-embedding",
             func.coalesce(GeneratedTopic.global_similarity_score, GeneratedTopic.similarity_score) >= SIMILARITY_HIGH_THRESHOLD,
+        ),
+        and_(
+            GeneratedTopic.global_similarity_method == "local-lexical",
+            func.coalesce(GeneratedTopic.global_similarity_score, GeneratedTopic.similarity_score) >= 50.0,
         ),
     )
     attention_count = db.scalar(
@@ -839,7 +933,7 @@ def list_topics(status: str | None = None, batch_id: int | None = None, db: Sess
     return [topic_to_schema(t) for t in db.scalars(query).unique().all()]
 
 
-async def _recalculate_batch_similarities(batch_id: int, db: Session) -> None:
+async def _recalculate_batch_similarities(batch_id: int, db: Session, *, allow_ai: bool = True) -> None:
     current = db.scalars(
         select(GeneratedTopic)
         .join(GenerationBatchTopic, GenerationBatchTopic.topic_id == GeneratedTopic.id)
@@ -871,7 +965,9 @@ async def _recalculate_batch_similarities(batch_id: int, db: Session) -> None:
 
     teacher_requests: list[tuple[str, list[str]]] = []
     global_requests: list[tuple[str, list[str]]] = []
+    batch_requests: list[tuple[str, list[str]]] = []
     global_metadata: list[dict[str, str]] = []
+    batch_metadata: list[dict[str, str]] = []
     for topic in current:
         source_id = topic.source_past_topic_id
 
@@ -893,22 +989,36 @@ async def _recalculate_batch_similarities(batch_id: int, db: Session) -> None:
             if oid != topic.id
         ]
 
+        batch_entries = [
+            (title, display) for title, _, display, oid in current_meta
+            if oid != topic.id
+        ]
         meta: dict[str, str] = {}
         for title, display in global_entries:
             meta.setdefault(title, display)
+        batch_meta: dict[str, str] = {}
+        for title, display in batch_entries:
+            batch_meta.setdefault(title, display)
         teacher_requests.append((topic.title, list(dict.fromkeys(teacher_candidates))))
         global_requests.append((topic.title, list(meta.keys())))
+        batch_requests.append((topic.title, list(batch_meta.keys())))
         global_metadata.append(meta)
+        batch_metadata.append(batch_meta)
 
     runtime = load_runtime_settings(db)
+    if not allow_ai:
+        runtime.mistral_api_key = None
     similarity = SimilarityService(runtime)
-    results = await similarity.closest_bulk(teacher_requests + global_requests)
-    teacher_results = results[:len(current)]
-    global_results = results[len(current):]
+    results = await similarity.closest_bulk(teacher_requests + global_requests + batch_requests)
+    n = len(current)
+    teacher_results = results[:n]
+    global_results = results[n:2*n]
+    batch_results = results[2*n:3*n]
 
     for index, topic in enumerate(current):
         t_score, t_closest, t_method = teacher_results[index]
         g_score, g_closest, g_method = global_results[index]
+        b_score, b_closest, b_method = batch_results[index]
         topic.teacher_similarity_score = t_score
         topic.teacher_closest_topic = t_closest
         topic.teacher_similarity_method = t_method
@@ -916,6 +1026,10 @@ async def _recalculate_batch_similarities(batch_id: int, db: Session) -> None:
         topic.global_closest_topic = g_closest
         topic.global_closest_teacher = global_metadata[index].get(g_closest or "") if g_closest else None
         topic.global_similarity_method = g_method
+        topic.batch_similarity_score = b_score
+        topic.batch_closest_topic = b_closest
+        topic.batch_closest_teacher = batch_metadata[index].get(b_closest or "") if b_closest else None
+        topic.batch_similarity_method = b_method
         topic.similarity_score = g_score
         topic.closest_past_topic = g_closest
         topic.similarity_method = g_method if g_method != "none" else t_method
@@ -997,6 +1111,8 @@ async def _generate_for_teacher(
             rationale=candidate.rationale,
             keywords=candidate.keywords,
             source_past_topic_id=candidate.source_past_topic_id,
+            generation_source=candidate.generation_source,
+            generation_model=candidate.generation_model,
             generation_index=i,
         )
         db.add(topic)
@@ -1011,33 +1127,58 @@ async def _generate_for_teacher(
 
 def _generation_groups(
     selections: list[GenerationSelection],
-    max_size: int = 5,
-    max_topics: int = 40,
+    max_size: int = 3,
+    max_topics: int = 20,
 ) -> list[list[GenerationSelection]]:
-    """Формирует устойчивые Mistral-пакеты по числу преподавателей и тем.
+    """Разбивает массовую генерацию на небольшие последовательные пакеты.
 
-    Не больше 5 преподавателей и примерно не больше 40 тем в одном ответе.
-    Например, 25 преподавателей × 10 тем будут разбиты примерно на 7 запросов,
-    а 20 преподавателей × 5 тем — на 4 запроса.
+    Для бесплатного Mistral-профиля держим максимум 3 преподавателя и около
+    20 тем в одном AI-запросе. Если у одного преподавателя запрошено больше
+    ``max_topics``, его запрос автоматически делится на несколько пакетов.
+
+    Примеры:
+    * 10 преподавателей × 10 тем -> 5 пакетов по 20 тем;
+    * 20 преподавателей × 5 тем -> 7 пакетов по 15/10 тем;
+    * 1 преподаватель × 50 тем -> 3 пакета: 20 + 20 + 10.
     """
     groups: list[list[GenerationSelection]] = []
     current: list[GenerationSelection] = []
     current_topics = 0
+
+    def flush() -> None:
+        nonlocal current, current_topics
+        if current:
+            groups.append(current)
+            current = []
+            current_topics = 0
+
     for item in selections:
-        count = max(1, int(item.count))
-        would_overflow = current and (len(current) >= max_size or current_topics + count > max_topics)
-        if would_overflow:
-            groups.append(current)
-            current = []
-            current_topics = 0
-        current.append(item)
-        current_topics += count
-        if len(current) >= max_size or current_topics >= max_topics:
-            groups.append(current)
-            current = []
-            current_topics = 0
-    if current:
-        groups.append(current)
+        remaining = max(1, int(item.count))
+        while remaining > 0:
+            if current and (len(current) >= max_size or current_topics >= max_topics):
+                flush()
+
+            capacity = max_topics - current_topics
+            if capacity <= 0:
+                flush()
+                capacity = max_topics
+
+            part = min(remaining, capacity)
+            # Не помещаем одного преподавателя дважды в один пакет: если его
+            # запрос пришлось резать, следующий кусок уйдёт в новый пакет.
+            if any(existing.teacher_id == item.teacher_id for existing in current):
+                flush()
+                capacity = max_topics
+                part = min(remaining, capacity)
+
+            current.append(GenerationSelection(teacher_id=item.teacher_id, count=part))
+            current_topics += part
+            remaining -= part
+
+            if len(current) >= max_size or current_topics >= max_topics or remaining > 0:
+                flush()
+
+    flush()
     return groups
 
 
@@ -1069,9 +1210,11 @@ async def generate_selected(payload: GenerateSelectedRequest, db: Session = Depe
             select(PastTopic.title).where(PastTopic.is_reference.is_(True)).order_by(PastTopic.id.desc()).limit(16)
         ).all()
 
-        # v23: Mistral получает компактные пакеты до 5 преподавателей и примерно до 40 тем.
-        # Это устойчивее для strict JSON и качества профилей при 5–10 темах на преподавателя.
-        for group in _generation_groups(payload.selections, max_size=5, max_topics=40):
+        # Массовая AI-генерация: один преподаватель на один запрос, до 10 тем.
+        # Такой запрос заметно меньше и быстрее, а 100 тем выполняются последовательной
+        # очередью с реальным прогрессом без скрытого local fallback.
+        generation_index_by_teacher: dict[int, int] = {}
+        for group in _generation_groups(payload.selections, max_size=1, max_topics=10):
             teacher_requests = [(by_id[item.teacher_id], item.count) for item in group]
             try:
                 generated_by_teacher, mode, group_warnings = await generator.generate_batch(
@@ -1088,14 +1231,23 @@ async def generate_selected(payload: GenerateSelectedRequest, db: Session = Depe
             for selection in group:
                 teacher = by_id[selection.teacher_id]
                 candidates = generated_by_teacher.get(teacher.id, [])
-                for i, candidate in enumerate(candidates):
+                for candidate in candidates:
+                    index = generation_index_by_teacher.get(teacher.id, 0)
+                    generation_index_by_teacher[teacher.id] = index + 1
                     topic = GeneratedTopic(
                         teacher_id=teacher.id,
                         title=candidate.title,
                         rationale=candidate.rationale,
                         keywords=candidate.keywords,
                         source_past_topic_id=candidate.source_past_topic_id,
-                        generation_index=i,
+                        generation_source=candidate.generation_source,
+                        generation_model=candidate.generation_model,
+                        profile_relevance_score=candidate.profile_relevance_score,
+                        matched_research_areas=candidate.matched_research_areas or [],
+                        profile_directions=candidate.profile_directions or [],
+                        foreign_profile_directions=candidate.foreign_profile_directions or [],
+                        profile_relevance_method=candidate.profile_relevance_method,
+                        generation_index=index,
                     )
                     db.add(topic)
                     db.flush()
@@ -1129,6 +1281,283 @@ async def generate_selected(payload: GenerateSelectedRequest, db: Session = Depe
         topics=[topic_to_schema(t) for t in all_topics],
         warning="\n".join(warnings) or None,
         batch_id=batch.id,
+    )
+
+
+@app.post("/api/generate/selected/demo", response_model=GenerationResult)
+async def generate_selected_demo(payload: GenerateSelectedRequest, db: Session = Depends(get_db)):
+    """Явная локальная demo-генерация без внешнего AI.
+
+    Этот endpoint никогда не вызывает Mistral. Все созданные темы получают
+    generation_source=local-demo, чтобы интерфейс и XLSX показывали источник.
+    """
+    ids = [item.teacher_id for item in payload.selections]
+    teachers = db.scalars(teacher_query().where(Teacher.id.in_(ids))).unique().all()
+    by_id = {teacher.id: teacher for teacher in teachers}
+    missing = [teacher_id for teacher_id in ids if teacher_id not in by_id]
+    if missing:
+        raise HTTPException(404, f"Не найдены преподаватели: {missing}")
+
+    batch = GenerationBatch(
+        focus=(payload.focus or "").strip() or None,
+        selections=[item.model_dump() for item in payload.selections],
+    )
+    db.add(batch)
+    db.commit()
+    db.refresh(batch)
+
+    all_topics: list[GeneratedTopic] = []
+    try:
+        generator = TopicGenerator(load_runtime_settings(db))
+        reserved: list[str] = []
+        generation_index_by_teacher: dict[int, int] = {}
+        for group in _generation_groups(payload.selections, max_size=3, max_topics=20):
+            teacher_requests = [(by_id[item.teacher_id], item.count) for item in group]
+            generated_by_teacher, _mode, _warnings = generator.generate_local_batch(
+                teacher_requests,
+                extra_avoid=reserved,
+                focus=batch.focus,
+            )
+            for selection in group:
+                teacher = by_id[selection.teacher_id]
+                for candidate in generated_by_teacher.get(teacher.id, []):
+                    index = generation_index_by_teacher.get(teacher.id, 0)
+                    generation_index_by_teacher[teacher.id] = index + 1
+                    topic = GeneratedTopic(
+                        teacher_id=teacher.id,
+                        title=candidate.title,
+                        rationale=candidate.rationale,
+                        keywords=candidate.keywords,
+                        source_past_topic_id=candidate.source_past_topic_id,
+                        generation_source="local-demo",
+                        generation_model=None,
+                        generation_index=index,
+                    )
+                    db.add(topic)
+                    db.flush()
+                    db.add(GenerationBatchTopic(batch_id=batch.id, topic_id=topic.id))
+                    all_topics.append(topic)
+                    reserved.append(topic.title)
+            db.commit()
+
+        await _recalculate_batch_similarities(batch.id, db, allow_ai=False)
+        rank, name, generation_index, topic_id = topic_ordering()
+        all_topics = db.scalars(
+            topic_query()
+            .join(Teacher, Teacher.id == GeneratedTopic.teacher_id)
+            .join(GenerationBatchTopic, GenerationBatchTopic.topic_id == GeneratedTopic.id)
+            .where(GenerationBatchTopic.batch_id == batch.id)
+            .order_by(rank, name, generation_index, topic_id)
+        ).unique().all()
+    except Exception:
+        db.rollback()
+        linked_ids = db.scalars(
+            select(GenerationBatchTopic.topic_id).where(GenerationBatchTopic.batch_id == batch.id)
+        ).all()
+        db.query(GenerationBatchTopic).filter(GenerationBatchTopic.batch_id == batch.id).delete()
+        if linked_ids:
+            db.query(GeneratedTopic).filter(GeneratedTopic.id.in_(linked_ids)).delete(synchronize_session=False)
+        db.delete(batch)
+        db.commit()
+        raise
+
+    return GenerationResult(
+        created=len(all_topics),
+        mode="local-demo",
+        topics=[topic_to_schema(t) for t in all_topics],
+        warning=(
+            "Демо-режим: темы подобраны локально из встроенного банка без обращения к Mistral AI. "
+            "Используйте их только для демонстрации интерфейса."
+        ),
+        batch_id=batch.id,
+    )
+
+
+@app.post("/api/generate/selected/stream")
+async def generate_selected_stream(payload: GenerateSelectedRequest):
+    """NDJSON-поток массовой генерации с реальным прогрессом по пакетам.
+
+    Пользователь запускает одну AI-операцию (например, 100 тем), а сервер
+    последовательно обрабатывает каждого преподавателя отдельным небольшим AI-запросом. После каждого пакета
+    фронтенд получает фактический прогресс. Основная генерация строго Mistral-only:
+    при ошибке/таймауте локальный банк не подмешивается и набор откатывается.
+    """
+
+    async def event_stream():
+        db = Session(engine)
+        batch_id: int | None = None
+
+        def emit(event: dict) -> str:
+            return json.dumps(event, ensure_ascii=False) + "\n"
+
+        try:
+            ids = [item.teacher_id for item in payload.selections]
+            teachers = db.scalars(teacher_query().where(Teacher.id.in_(ids))).unique().all()
+            by_id = {teacher.id: teacher for teacher in teachers}
+            missing = [teacher_id for teacher_id in ids if teacher_id not in by_id]
+            if missing:
+                yield emit({"type": "error", "message": f"Не найдены преподаватели: {missing}"})
+                return
+
+            batch = GenerationBatch(
+                focus=(payload.focus or "").strip() or None,
+                selections=[item.model_dump() for item in payload.selections],
+            )
+            db.add(batch)
+            db.commit()
+            db.refresh(batch)
+            batch_id = batch.id
+
+            groups = _generation_groups(payload.selections, max_size=1, max_topics=10)
+            total_requested = sum(max(1, int(item.count)) for item in payload.selections)
+            yield emit({
+                "type": "start",
+                "batch_id": batch.id,
+                "total": total_requested,
+                "created": 0,
+                "completed_groups": 0,
+                "total_groups": len(groups),
+                "stage": "generation",
+            })
+
+            runtime = load_runtime_settings(db)
+            generator = TopicGenerator(runtime)
+            style_examples = db.scalars(
+                select(PastTopic.title)
+                .where(PastTopic.is_reference.is_(True))
+                .order_by(PastTopic.id.desc())
+                .limit(16)
+            ).all()
+
+            batch_reserved_titles: list[str] = []
+            modes: set[str] = set()
+            warnings: list[str] = []
+            generation_index_by_teacher: dict[int, int] = {}
+            created_count = 0
+
+            for group_index, group in enumerate(groups, start=1):
+                teacher_requests = [(by_id[item.teacher_id], item.count) for item in group]
+                yield emit({
+                    "type": "progress",
+                    "batch_id": batch.id,
+                    "total": total_requested,
+                    "created": created_count,
+                    "completed_groups": group_index - 1,
+                    "total_groups": len(groups),
+                    "stage": "generation",
+                    "message": f"Преподаватель {group_index} из {len(groups)}: отправляем запрос Mistral…",
+                })
+
+                task = asyncio.create_task(generator.generate_batch(
+                    teacher_requests,
+                    extra_avoid=batch_reserved_titles,
+                    focus=batch.focus,
+                    style_examples=style_examples,
+                ))
+                waited = 0
+                while not task.done():
+                    done, _ = await asyncio.wait({task}, timeout=5.0)
+                    if done:
+                        break
+                    waited += 5
+                    yield emit({
+                        "type": "heartbeat",
+                        "batch_id": batch.id,
+                        "total": total_requested,
+                        "created": created_count,
+                        "completed_groups": group_index - 1,
+                        "total_groups": len(groups),
+                        "stage": "generation",
+                        "message": f"Преподаватель {group_index} из {len(groups)}: Mistral думает {waited} сек…",
+                    })
+                generated_by_teacher, mode, group_warnings = await task
+                modes.add(mode)
+                warnings.extend(group_warnings)
+
+                for selection in group:
+                    teacher = by_id[selection.teacher_id]
+                    for candidate in generated_by_teacher.get(teacher.id, []):
+                        index = generation_index_by_teacher.get(teacher.id, 0)
+                        generation_index_by_teacher[teacher.id] = index + 1
+                        topic = GeneratedTopic(
+                            teacher_id=teacher.id,
+                            title=candidate.title,
+                            rationale=candidate.rationale,
+                            keywords=candidate.keywords,
+                            source_past_topic_id=candidate.source_past_topic_id,
+                            generation_source=candidate.generation_source,
+                            generation_model=candidate.generation_model,
+                            generation_index=index,
+                        )
+                        db.add(topic)
+                        db.flush()
+                        db.add(GenerationBatchTopic(batch_id=batch.id, topic_id=topic.id))
+                        batch_reserved_titles.append(topic.title)
+                        created_count += 1
+                db.commit()
+
+                yield emit({
+                    "type": "progress",
+                    "batch_id": batch.id,
+                    "total": total_requested,
+                    "created": created_count,
+                    "completed_groups": group_index,
+                    "total_groups": len(groups),
+                    "stage": "generation",
+                    "mode": mode,
+                })
+                await asyncio.sleep(0)
+
+            yield emit({
+                "type": "progress",
+                "batch_id": batch.id,
+                "total": total_requested,
+                "created": created_count,
+                "completed_groups": len(groups),
+                "total_groups": len(groups),
+                "stage": "similarity",
+                "message": "Темы созданы. Проверяем сходство по истории и текущему набору…",
+            })
+            await _recalculate_batch_similarities(batch.id, db)
+
+            final_count = db.scalar(
+                select(func.count())
+                .select_from(GenerationBatchTopic)
+                .where(GenerationBatchTopic.batch_id == batch.id)
+            ) or 0
+            yield emit({
+                "type": "final",
+                "batch_id": batch.id,
+                "created": int(final_count),
+                "total": total_requested,
+                "completed_groups": len(groups),
+                "total_groups": len(groups),
+                "stage": "done",
+                "mode": "+".join(sorted(modes)),
+                "warning": "\n".join(dict.fromkeys(warnings)) or None,
+            })
+        except Exception as exc:
+            db.rollback()
+            if batch_id is not None:
+                try:
+                    batch = db.get(GenerationBatch, batch_id)
+                    if batch is not None:
+                        _delete_generation_batch_row(batch, db)
+                        db.commit()
+                except Exception:
+                    db.rollback()
+            yield emit({
+                "type": "error",
+                "batch_id": batch_id,
+                "message": f"Не удалось завершить генерацию: {type(exc).__name__}: {exc}",
+            })
+        finally:
+            db.close()
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="application/x-ndjson; charset=utf-8",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
@@ -1195,6 +1624,13 @@ async def regenerate_topic(topic_id: int, db: Session = Depends(get_db)):
     topic.rationale = candidate.rationale
     topic.keywords = candidate.keywords
     topic.source_past_topic_id = candidate.source_past_topic_id
+    topic.generation_source = candidate.generation_source
+    topic.generation_model = candidate.generation_model
+    topic.profile_relevance_score = candidate.profile_relevance_score
+    topic.matched_research_areas = candidate.matched_research_areas or []
+    topic.profile_directions = candidate.profile_directions or []
+    topic.foreign_profile_directions = candidate.foreign_profile_directions or []
+    topic.profile_relevance_method = candidate.profile_relevance_method
     topic.manual_edit = False
     topic.status = "draft"
     db.commit()
@@ -1212,6 +1648,11 @@ async def edit_topic(topic_id: int, payload: TopicUpdate, db: Session = Depends(
     topic.title = payload.title.strip()
     # После ручного изменения это уже не дословно перенесённая историческая тема.
     topic.source_past_topic_id = None
+    topic.profile_relevance_score = None
+    topic.matched_research_areas = []
+    topic.profile_directions = []
+    topic.foreign_profile_directions = []
+    topic.profile_relevance_method = None
     topic.manual_edit = True
     db.commit()
     batch_id = _batch_id_for_topic(db, topic.id)
@@ -1273,8 +1714,25 @@ def approved_topics(db: Session, batch_id: int | None = None) -> list[GeneratedT
     return db.scalars(query).unique().all()
 
 
+async def _full_quality_recheck_before_export(batch_id: int | None, db: Session) -> None:
+    """Последний рубеж: перед публикацией всегда пересчитываем similarity локально."""
+    if batch_id is not None:
+        if db.get(GenerationBatch, batch_id):
+            await _recalculate_batch_similarities(batch_id, db)
+        return
+    batch_ids = db.scalars(
+        select(GenerationBatchTopic.batch_id)
+        .join(GeneratedTopic, GeneratedTopic.id == GenerationBatchTopic.topic_id)
+        .where(GeneratedTopic.status == "approved")
+        .distinct()
+    ).all()
+    for current_batch_id in batch_ids:
+        await _recalculate_batch_similarities(int(current_batch_id), db)
+
+
 @app.get("/api/export/xlsx")
-def export_xlsx(batch_id: int | None = None, db: Session = Depends(get_db)):
+async def export_xlsx(batch_id: int | None = None, db: Session = Depends(get_db)):
+    await _full_quality_recheck_before_export(batch_id, db)
     topics = approved_topics(db, batch_id)
     if not topics:
         raise HTTPException(400, "Сначала утвердите хотя бы одну тему")
@@ -1288,7 +1746,8 @@ def export_xlsx(batch_id: int | None = None, db: Session = Depends(get_db)):
 
 
 @app.post("/api/export/google-sheet", response_model=GoogleSheetResult)
-def export_google_sheet(batch_id: int | None = None, db: Session = Depends(get_db)):
+async def export_google_sheet(batch_id: int | None = None, db: Session = Depends(get_db)):
+    await _full_quality_recheck_before_export(batch_id, db)
     topics = approved_topics(db, batch_id)
     if not topics:
         raise HTTPException(400, "Сначала утвердите хотя бы одну тему")

@@ -40,3 +40,33 @@ def test_hybrid_exact_duplicate_is_100():
     from app.services.similarity import hybrid_similarity
     title = "Разработка приложения для переноса стиля на изображение"
     assert hybrid_similarity(title, title, 1.0) == 100.0
+
+
+def test_lexical_fallback_catches_real_batch14_paraphrases():
+    from app.services.similarity import lexical_fallback_similarity, LEXICAL_REVIEW_THRESHOLD
+
+    pairs = [
+        (
+            "Многоагентная система глубинного изучения математических дисциплин с автогенерацией персонализированных заданий",
+            "Разработка системы автоматической генерации и проверки учебных заданий с адаптацией сложности",
+        ),
+        (
+            "Многоагентная система фиксации и управления историей разработки учебных и научных работ",
+            "Разработка системы управления и анализа истории разработки научных проектов вуза с визуализацией зависимостей",
+        ),
+        (
+            "Разработка системы обнаружения объектов на строительной площадке по фотографиям с формированием визуального протокола",
+            "Разработка системы оценки качества строительных швов с использованием компьютерного зрения и генерации отчетов контроля с сегментацией дефектов",
+        ),
+    ]
+    assert all(lexical_fallback_similarity(a, b) >= LEXICAL_REVIEW_THRESHOLD for a, b in pairs)
+
+
+def test_lexical_fallback_keeps_different_cv_topics_apart():
+    from app.services.similarity import lexical_fallback_similarity, LEXICAL_REVIEW_THRESHOLD
+
+    score = lexical_fallback_similarity(
+        "Разработка системы мониторинга заполненности мусорных контейнеров по фотографиям",
+        "Разработка системы анализа спутниковых снимков для обнаружения изменений территории",
+    )
+    assert score < LEXICAL_REVIEW_THRESHOLD

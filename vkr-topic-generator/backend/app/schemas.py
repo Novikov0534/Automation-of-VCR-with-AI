@@ -132,6 +132,13 @@ class TopicRead(BaseModel):
     title: str
     rationale: str | None
     keywords: list[str]
+    generation_source: str = "legacy"
+    generation_model: str | None = None
+    profile_relevance_score: float = 0.0
+    matched_research_areas: list[str] = []
+    profile_directions: list[str] = []
+    foreign_profile_directions: list[str] = []
+    profile_relevance_method: str = "local-taxonomy-v30"
 
     # Совместимое поле = глобальная похожесть.
     similarity_score: float
@@ -141,9 +148,15 @@ class TopicRead(BaseModel):
     global_similarity_score: float
     global_closest_topic: str | None
     global_closest_teacher: str | None
+    batch_similarity_score: float = 0.0
+    batch_closest_topic: str | None = None
+    batch_closest_teacher: str | None = None
     similarity_method: str
     teacher_similarity_method: str = "none"
     global_similarity_method: str = "none"
+    batch_similarity_method: str = "none"
+    quality_state: Literal["passed", "review", "blocked"] = "passed"
+    quality_reasons: list[str] = []
 
     status: str
     manual_edit: bool

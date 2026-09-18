@@ -438,7 +438,7 @@ def test_settings_expose_mistral_defaults_and_unconfigured_status():
     settings = client.get("/api/settings")
     assert settings.status_code == 200, settings.text
     assert settings.json()["mistral_configured"] is False
-    assert settings.json()["mistral_chat_model"] == "mistral-small-latest"
+    assert settings.json()["mistral_chat_model"] == "ministral-8b-2512"
     assert settings.json()["mistral_embedding_model"] == "mistral-embed"
     status = client.get("/api/integrations/status")
     assert status.status_code == 200, status.text
@@ -494,15 +494,53 @@ def test_generation_groups_mistral_keep_batches_compact():
     from app.main import _generation_groups
     from app.schemas import GenerationSelection
 
-    def sizes(n, count=5):
+    def groups(n, count=5):
         selections = [GenerationSelection(teacher_id=i + 1, count=count) for i in range(n)]
-        return [len(group) for group in _generation_groups(selections)]
+        return _generation_groups(selections)
 
-    # Для обычных 5 тем: не более 5 преподавателей в одном Mistral-запросе.
-    assert sizes(5) == [5]
-    assert sizes(7) == [5, 2]
-    assert sizes(20) == [5, 5, 5, 5]
+    # Free-tier friendly: не более 3 преподавателей и 20 тем в пакете.
+    assert [len(group) for group in groups(5)] == [3, 2]
+    assert [len(group) for group in groups(7)] == [3, 3, 1]
+    assert [sum(x.count for x in group) for group in groups(20)] == [15, 15, 15, 15, 15, 15, 10]
 
-    # При 10 темах на преподавателя ограничение ~40 тем автоматически
-    # уменьшает пакет до четырёх преподавателей.
-    assert sizes(25, count=10) == [4, 4, 4, 4, 4, 4, 1]
+    # 10 преподавателей × 10 тем = 100 тем -> ровно 5 пакетов по 20.
+    hundred = groups(10, count=10)
+    assert len(hundred) == 5
+    assert [sum(x.count for x in group) for group in hundred] == [20, 20, 20, 20, 20]
+
+    # Даже один большой запрос режется на безопасные части.
+    large = _generation_groups([GenerationSelection(teacher_id=1, count=50)])
+    assert [group[0].count for group in large] == [20, 20, 10]
+
+
+def test_explicit_demo_generation_marks_source_and_does_not_masquerade_as_ai():
+    reset_db()
+    created = client.post(
+        "/api/teachers",
+        json=teacher_payload("Демонстрационный Дмитрий Дмитриевич", "доцент"),
+    )
+    assert created.status_code == 201, created.text
+    teacher_id = created.json()["id"]
+
+    response = client.post(
+        "/api/generate/selected/demo",
+        json={"selections": [{"teacher_id": teacher_id, "count": 3}], "focus": "веб-системы"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["mode"] == "local-demo"
+    assert body["created"] == 3
+    assert all(item["generation_source"] == "local-demo" for item in body["topics"])
+    assert all(item["generation_model"] is None for item in body["topics"])
+    assert "без обращения к Mistral" in body["warning"]
+
+
+def test_generation_groups_fast_ai_one_teacher_per_request():
+    from app.main import _generation_groups
+    from app.schemas import GenerationSelection
+
+    selections = [GenerationSelection(teacher_id=i + 1, count=10) for i in range(10)]
+    groups = _generation_groups(selections, max_size=1, max_topics=10)
+    assert len(groups) == 10
+    assert all(len(group) == 1 for group in groups)
+    assert [group[0].count for group in groups] == [10] * 10

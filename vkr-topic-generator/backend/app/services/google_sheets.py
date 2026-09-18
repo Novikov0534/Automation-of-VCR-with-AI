@@ -63,25 +63,27 @@ class GoogleSheetsService:
 
         spreadsheet_id, spreadsheet_url, sheet_id, sheet_title, created_new = self._prepare_spreadsheet(sheets)
 
-        values = [["Преподаватель", "Тема", "ФИО студента", "Контакты преподавателя"]]
+        # Итоговая таблица публикации должна совпадать со структурой из UI/критериев:
+        # Преподаватель | Тема | ФИО студента.
+        # Внутренние поля Quality Gate и provenance остаются в приложении.
+        values = [["Преподаватель", "Тема", "ФИО студента"]]
         for topic in topics:
             values.append([
                 teacher_table_name(topic.teacher.full_name, topic.teacher.position),
                 topic.title,
                 "",
-                topic.teacher.contact_text,
             ])
 
-        # Если пользователь указал существующую таблицу, очищаем старые строки A:D,
+        # Если пользователь указал существующую таблицу, очищаем старые строки A:C,
         # чтобы новая генерация не смешивалась с предыдущей.
         sheets.spreadsheets().values().clear(
             spreadsheetId=spreadsheet_id,
-            range=f"'{sheet_title}'!A:D",
+            range=f"'{sheet_title}'!A:C",
             body={},
         ).execute()
         sheets.spreadsheets().values().update(
             spreadsheetId=spreadsheet_id,
-            range=f"'{sheet_title}'!A1:D",
+            range=f"'{sheet_title}'!A1:C",
             valueInputOption="RAW",
             body={"values": values},
         ).execute()
@@ -102,7 +104,7 @@ class GoogleSheetsService:
             },
             {
                 "autoResizeDimensions": {
-                    "dimensions": {"sheetId": sheet_id, "dimension": "COLUMNS", "startIndex": 0, "endIndex": 4}
+                    "dimensions": {"sheetId": sheet_id, "dimension": "COLUMNS", "startIndex": 0, "endIndex": 3}
                 }
             },
         ]

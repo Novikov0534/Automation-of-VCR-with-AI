@@ -38,6 +38,13 @@ export type Topic = {
   title: string;
   rationale?: string | null;
   keywords: string[];
+  generation_source: string;
+  generation_model?: string | null;
+  profile_relevance_score: number;
+  matched_research_areas: string[];
+  profile_directions: string[];
+  foreign_profile_directions: string[];
+  profile_relevance_method: string;
   similarity_score: number;
   closest_past_topic?: string | null;
   teacher_similarity_score: number;
@@ -45,9 +52,15 @@ export type Topic = {
   global_similarity_score: number;
   global_closest_topic?: string | null;
   global_closest_teacher?: string | null;
+  batch_similarity_score: number;
+  batch_closest_topic?: string | null;
+  batch_closest_teacher?: string | null;
   similarity_method: string;
   teacher_similarity_method: string;
   global_similarity_method: string;
+  batch_similarity_method: string;
+  quality_state: "passed" | "review" | "blocked";
+  quality_reasons: string[];
   status: "draft" | "approved" | "rejected";
   manual_edit: boolean;
   created_at: string;
@@ -55,6 +68,19 @@ export type Topic = {
 };
 
 export type GenerationSelection = { teacher_id: number; count: number };
+
+export type GenerationProgressEvent = {
+  type: "start" | "progress" | "heartbeat" | "final" | "error";
+  batch_id?: number | null;
+  created?: number;
+  total?: number;
+  completed_groups?: number;
+  total_groups?: number;
+  stage?: "generation" | "similarity" | "done";
+  mode?: string;
+  warning?: string | null;
+  message?: string;
+};
 
 export type AppSettings = {
   mistral_configured: boolean;
@@ -220,6 +246,55 @@ export const api = {
   generateSelected: (selections: GenerationSelection[], focus?: string) => request<{ created: number; mode: string; topics: Topic[]; warning?: string | null; batch_id?: number | null }>("/api/generate/selected", {
     method: "POST", body: JSON.stringify({ selections, focus: focus?.trim() || null }),
   }),
+  generateSelectedDemo: (selections: GenerationSelection[], focus?: string) => request<{ created: number; mode: string; topics: Topic[]; warning?: string | null; batch_id?: number | null }>("/api/generate/selected/demo", {
+    method: "POST", body: JSON.stringify({ selections, focus: focus?.trim() || null }),
+  }),
+  generateSelectedStream: async (
+    selections: GenerationSelection[],
+    focus: string | undefined,
+    onEvent: (event: GenerationProgressEvent) => void,
+  ): Promise<GenerationProgressEvent> => {
+    let response: Response;
+    try {
+      response = await fetch(`${API_URL}/api/generate/selected/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selections, focus: focus?.trim() || null }),
+        cache: "no-store",
+      });
+    } catch {
+      throw new Error("Не удалось связаться с сервером приложения во время генерации.");
+    }
+    if (!response.ok || !response.body) {
+      throw new Error(`Не удалось запустить генерацию: HTTP ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let finalEvent: GenerationProgressEvent | null = null;
+
+    const processLine = (line: string) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      const event = JSON.parse(trimmed) as GenerationProgressEvent;
+      onEvent(event);
+      if (event.type === "error") throw new Error(event.message || "Ошибка генерации");
+      if (event.type === "final") finalEvent = event;
+    };
+
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) processLine(line);
+      if (done) break;
+    }
+    if (buffer.trim()) processLine(buffer);
+    if (!finalEvent) throw new Error("Сервер завершил поток без итогового результата");
+    return finalEvent;
+  },
   regenerateTopic: (id: number) => request<Topic>(`/api/topics/${id}/regenerate`, { method: "POST" }),
   editTopic: (id: number, title: string) => request<Topic>(`/api/topics/${id}`, { method: "PATCH", body: JSON.stringify({ title }) }),
   setTopicStatus: (id: number, status: string) => request<Topic>(`/api/topics/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),

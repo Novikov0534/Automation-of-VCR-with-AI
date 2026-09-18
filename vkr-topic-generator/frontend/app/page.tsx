@@ -8,7 +8,7 @@ import HistoryImportModal from "../components/HistoryImportModal";
 import TeacherDeleteModal from "../components/TeacherDeleteModal";
 import HoldToClearButton from "../components/HoldToClearButton";
 import {
-  API_URL, api, AppSettings, AppSettingsUpdate, GenerationBatch, HistoryImportPreview,
+  API_URL, api, AppSettings, AppSettingsUpdate, GenerationBatch, GenerationProgressEvent, HistoryImportPreview,
   IntegrationCheck, IntegrationsStatus, PastTopic, Teacher, Topic,
 } from "../lib/api";
 
@@ -17,7 +17,7 @@ type Tab = "teachers" | "generation" | "topics" | "history" | "publish";
 const DEFAULT_APP_SETTINGS: AppSettings = {
   mistral_configured: false,
   mistral_key_hint: null,
-  mistral_chat_model: "mistral-small-latest",
+  mistral_chat_model: "ministral-8b-2512",
   mistral_embedding_model: "mistral-embed",
   google_service_account_configured: false,
   google_service_account_hint: null,
@@ -43,21 +43,55 @@ function isExactDuplicate(method?: string | null) {
 }
 const SIMILARITY_REVIEW = 45;
 const SIMILARITY_HIGH = 70;
-const CURRENT_SIMILARITY_METHODS = new Set(["hybrid-mistral", "hybrid-lexical", "exact-duplicate", "none"]);
+const LEXICAL_REVIEW = 25;
+const LEXICAL_HIGH = 50;
+const CURRENT_SIMILARITY_METHODS = new Set(["local-embedding", "local-lexical", "exact-duplicate", "none"]);
+function similarityThresholds(method?: string | null) {
+  return method === "local-lexical"
+    ? { review: LEXICAL_REVIEW, high: LEXICAL_HIGH }
+    : { review: SIMILARITY_REVIEW, high: SIMILARITY_HIGH };
+}
 function scoreClass(score: number, method?: string | null) {
   if (isExactDuplicate(method)) return "red";
-  if (score < SIMILARITY_REVIEW) return "green";
-  if (score < SIMILARITY_HIGH) return "yellow";
+  const { review, high } = similarityThresholds(method);
+  if (score < review) return "green";
+  if (score < high) return "yellow";
   return "red";
 }
 function scoreText(score: number, method?: string | null) {
   if (isExactDuplicate(method)) return "точный дубликат";
-  if (score < SIMILARITY_REVIEW) return "низкое сходство";
-  if (score < SIMILARITY_HIGH) return "проверить";
+  const { review, high } = similarityThresholds(method);
+  if (score < review) return "низкое сходство";
+  if (score < high) return "проверить";
   return "высокое сходство";
+}
+function profileClass(score: number) {
+  if (score >= 70) return "green";
+  if (score >= 45) return "yellow";
+  return "red";
+}
+function profileText(score: number) {
+  if (score >= 70) return "хорошее соответствие";
+  if (score >= 45) return "проверить профиль";
+  return "слабое соответствие";
+}
+function qualityLabel(topic: Topic) {
+  if (topic.quality_state === "blocked") return { label: "✕ Блокирует", cls: "blocked" };
+  if (topic.quality_state === "review") return { label: "⚠ Проверить", cls: "review" };
+  return { label: "✓ Прошла", cls: "passed" };
 }
 function scoreValue(score: number, method?: string | null) {
   return isExactDuplicate(method) ? "100/100" : `${Math.round(score)}/100`;
+}
+
+function topicSourceLabel(topic: Topic) {
+  if (topic.generation_source === "mistral-ai") {
+    return { label: "✦ Mistral AI", title: topic.generation_model ? `Сгенерировано моделью ${topic.generation_model}` : "Сгенерировано Mistral AI", cls: "ai" };
+  }
+  if (topic.generation_source === "local-demo") {
+    return { label: "⚙ Демо без ИИ", title: "Тема взята/сформирована локальным демонстрационным генератором без вызова LLM", cls: "demo" };
+  }
+  return { label: "Источник не зафиксирован", title: "Тема создана в старой версии приложения", cls: "legacy" };
 }
 
 
@@ -83,6 +117,7 @@ export default function Home() {
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<number[]>([]);
   const [generationCounts, setGenerationCounts] = useState<Record<number, number>>({});
   const [generationFocus, setGenerationFocus] = useState("");
+  const [generationProgress, setGenerationProgress] = useState<GenerationProgressEvent | null>(null);
   const [teacherSearch, setTeacherSearch] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
@@ -217,9 +252,12 @@ export default function Home() {
 
   const currentBatch = useMemo(() => batches.find((b) => b.id === activeBatchId) || null, [batches, activeBatchId]);
   const latestBatch = batches[0] || null;
-  const yellowThreshold = SIMILARITY_HIGH;
   const approved = topics.filter((t) => t.status === "approved").length;
-  const needsAttention = (t: Topic) => isExactDuplicate(t.global_similarity_method) || t.global_similarity_score >= yellowThreshold;
+  const needsAttention = (t: Topic) => {
+    if (t.quality_state === "blocked" || t.quality_state === "review") return true;
+    const { high } = similarityThresholds(t.global_similarity_method);
+    return isExactDuplicate(t.global_similarity_method) || t.global_similarity_score >= high;
+  };
   const mistralReady = integrations?.mistral.status === "connected";
   const red = topics.filter((t) => needsAttention(t) && t.status !== "rejected").length;
   const selectedTeachers = teachers.filter((t) => selectedTeacherIds.includes(t.id));
@@ -346,18 +384,52 @@ export default function Home() {
 
   async function generateSelected() {
     if (!selectedTeachers.length) { setMessage({ type: "err", text: "Выберите хотя бы одного преподавателя" }); return; }
-    const selections = selectedTeachers.map((teacher) => ({ teacher_id: teacher.id, count: Math.max(1, Math.min(50, Number(generationCounts[teacher.id] || 1))) }));
-    setBusy("generate"); setMessage(null);
+    const selections = selectedTeachers.map((teacher) => ({
+      teacher_id: teacher.id,
+      count: Math.max(1, Math.min(10, Number(generationCounts[teacher.id] || 1))),
+    }));
+    setBusy("generate"); setMessage(null); setGenerationProgress(null);
     try {
-      const result = await api.generateSelected(selections, generationFocus);
-      await refresh(result.batch_id || null);
-      if (result.batch_id) activeBatchRef.current = result.batch_id;
-      setTab("topics", { batchId: result.batch_id || null });
-      setMessage({ type: result.warning ? "err" : "ok", text: result.warning
-        ? `Набор #${result.batch_id} создан: ${result.created} тем. ${result.warning}`
-        : `Набор #${result.batch_id} создан: ${result.created} новых тем Mistral. Проверка сходства выполнена по преподавателю и по всей базе.` });
-    } catch (e) { setMessage({ type: "err", text: e instanceof Error ? e.message : "Ошибка генерации" }); }
-    finally { setBusy(null); }
+      const result = await api.generateSelectedStream(selections, generationFocus, (event) => {
+        setGenerationProgress(event);
+      });
+      const batchId = result.batch_id || null;
+      await refresh(batchId);
+      if (batchId) activeBatchRef.current = batchId;
+      setTab("topics", { batchId });
+      setMessage({
+        type: "ok",
+        text: `Набор #${batchId} создан: ${result.created || 0} тем. Все темы этого запуска получены через Mistral AI; локальный банк не подмешивался. Проверка сходства выполнена.${result.warning ? ` ${result.warning}` : ""}`,
+      });
+    } catch (e) {
+      setMessage({ type: "err", text: e instanceof Error ? e.message : "Ошибка генерации" });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function generateDemo() {
+    if (!selectedTeachers.length) { setMessage({ type: "err", text: "Выберите хотя бы одного преподавателя" }); return; }
+    const selections = selectedTeachers.map((teacher) => ({
+      teacher_id: teacher.id,
+      count: Math.max(1, Math.min(10, Number(generationCounts[teacher.id] || 1))),
+    }));
+    setBusy("generate-demo"); setMessage(null); setGenerationProgress(null);
+    try {
+      const result = await api.generateSelectedDemo(selections, generationFocus);
+      const batchId = result.batch_id || null;
+      await refresh(batchId);
+      if (batchId) activeBatchRef.current = batchId;
+      setTab("topics", { batchId });
+      setMessage({
+        type: "ok",
+        text: `Демо-набор #${batchId} создан: ${result.created || 0} тем. Mistral AI не вызывался; все темы помечены как «Демо без ИИ».`,
+      });
+    } catch (e) {
+      setMessage({ type: "err", text: e instanceof Error ? e.message : "Ошибка демо-генерации" });
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function regenerate(topic: Topic) {
@@ -493,7 +565,7 @@ export default function Home() {
             <div className="stat"><span>В базе</span><strong>{teachers.length}</strong><small>преподавателей</small></div>
             <div className="stat"><span>Выбрано</span><strong>{selectedTeacherIds.length}</strong><small>для новой генерации</small></div>
             <div className="stat"><span>К генерации</span><strong>{requested}</strong><small>тем по выбору</small></div>
-            <div className="stat warning"><span>Требуют внимания</span><strong>{red}</strong><small>индекс сходства ≥ {yellowThreshold} или точный дубликат</small></div>
+            <div className="stat warning"><span>Требуют внимания</span><strong>{red}</strong><small>высокое сходство, точный дубликат или слабое соответствие профилю</small></div>
           </div>
 
           {tab === "teachers" && <>
@@ -516,18 +588,18 @@ export default function Home() {
 
           {tab === "generation" && <>
             <div className="page-head"><div><div className="eyebrow">Новый набор тем</div><h1>Выберите преподавателей</h1></div><div className="head-actions"><button className="btn secondary teacher-base-btn" onClick={() => setTab("teachers")}>👥 База преподавателей</button><button className="btn secondary" onClick={() => setSelectedTeacherIds(teachers.map((t) => t.id))}>Выбрать всех</button><button className="btn ghost" onClick={() => setSelectedTeacherIds([])}>Сбросить</button></div></div>
-            {!mistralReady && <div className="ai-required-banner"><div><b>Для новых тем нужен Mistral AI</b><span>Прошлые темы больше не подставляются как результат генерации. Подключи Mistral API Key — прошлые ВКР будут использоваться только как профиль преподавателя.</span></div><button className="btn secondary" onClick={() => setSettingsOpen(true)}>Настроить Mistral</button></div>}
+            {!mistralReady && <div className="ai-required-banner"><div><b>Mistral AI не подключён — AI-генерация отключена</b><span>Основная кнопка больше не подставляет готовые темы. Для проверки интерфейса можно отдельно запустить «Демо без ИИ».</span></div><button className="btn secondary" onClick={() => setSettingsOpen(true)}>Подключить Mistral</button></div>}
             {!teachers.length ? <div className="empty"><h3>Сначала заполните базу</h3><button className="btn primary" onClick={() => setTab("teachers")}>К базе</button></div> : <div className="generation-layout">
-              <div className="generation-panel"><div className="selection-toolbar"><input value={teacherSearch} onChange={(e) => setTeacherSearch(e.target.value)} placeholder="Поиск по ФИО, кафедре или должности…"/><span>{selectedTeacherIds.length} из {teachers.length} выбрано</span></div><div className="selection-list">{visibleTeachers.map((teacher) => { const checked = selectedTeacherIds.includes(teacher.id); return <div className={`selection-row ${checked ? "selected" : ""}`} key={teacher.id}><label className="teacher-check"><input type="checkbox" checked={checked} onChange={() => toggleTeacher(teacher.id)}/><span className="check-mark">✓</span></label><div className="selection-person"><b>{teacher.full_name}</b><small>{[teacher.position, teacher.department].filter(Boolean).join(" · ") || "данные не заполнены"}</small></div><label className="count-control"><span>Количество тем</span><input type="number" min={1} max={50} disabled={!checked} value={generationCounts[teacher.id] || 5} onChange={(e) => setGenerationCounts((x) => ({ ...x, [teacher.id]: Math.max(1, Math.min(50, Number(e.target.value) || 1)) }))}/></label></div>; })}</div></div>
-              <aside className="generation-summary"><div className="summary-kicker">Текущий выбор</div><strong>{requested}</strong><span>тем будет создано</span><div className="summary-divider"/><p><b>{selectedTeacherIds.length}</b> преподавателей.</p><div className="batch-generation-hint"><b>Пакетная AI-генерация</b><span>До 5 преподавателей и примерно до 40 тем за один запрос Mistral. При 10 темах на преподавателя пакет автоматически уменьшается.</span><small>Запросы идут последовательно с паузой 1,25 секунды; при HTTP 429 выполняются повторы через 2, 4 и 8 секунд.</small></div><label className="focus-field"><span>Фокус генерации <i>необязательно</i></span><textarea rows={6} value={generationFocus} onChange={(e) => setGenerationFocus(e.target.value)} placeholder="Например: компьютерное зрение; веб-системы; открытые датасеты…"/></label><button className="btn primary glow generation-button" onClick={generateSelected} disabled={!selectedTeacherIds.length || busy === "generate" || !mistralReady}>{busy === "generate" ? "Mistral генерирует пакетами…" : `✦ Сгенерировать ${requested || 0} новых тем`}</button></aside>
+              <div className="generation-panel"><div className="selection-toolbar"><input value={teacherSearch} onChange={(e) => setTeacherSearch(e.target.value)} placeholder="Поиск по ФИО, кафедре или должности…"/><span>{selectedTeacherIds.length} из {teachers.length} выбрано</span></div><div className="selection-list">{visibleTeachers.map((teacher) => { const checked = selectedTeacherIds.includes(teacher.id); return <div className={`selection-row ${checked ? "selected" : ""}`} key={teacher.id}><label className="teacher-check"><input type="checkbox" checked={checked} onChange={() => toggleTeacher(teacher.id)}/><span className="check-mark">✓</span></label><div className="selection-person"><b>{teacher.full_name}</b><small>{[teacher.position, teacher.department].filter(Boolean).join(" · ") || "данные не заполнены"}</small></div><label className="count-control"><span>Количество тем</span><input type="number" min={1} max={10} disabled={!checked} value={generationCounts[teacher.id] || 5} onChange={(e) => setGenerationCounts((x) => ({ ...x, [teacher.id]: Math.max(1, Math.min(10, Number(e.target.value) || 1)) }))}/></label></div>; })}</div></div>
+              <aside className="generation-summary"><div className="summary-kicker">Текущий выбор</div><strong>{requested}</strong><span>тем запрошено (Quality Gate может оставить меньше)</span><div className="summary-divider"/><p><b>{selectedTeacherIds.length}</b> преподавателей.</p><div className="batch-generation-hint"><b>Массовая AI-генерация до 100+ тем</b><span>Каждый преподаватель обрабатывается отдельным коротким AI-запросом до 10 тем. Например, 10 преподавателей × 10 тем = 10 последовательных AI-запросов с прогрессом после каждого преподавателя.</span><small>V34: для скорости Mistral возвращает только короткий список названий тем — без длинных rationale/keywords в structured-ответе. По названию всё равно должно быть ясно, какой программный продукт создаётся, для какой задачи и с какими функциями. Профиль, прошлые темы и дубли проверяет локальный Quality Gate.</small></div><label className="focus-field"><span>Фокус генерации <i>необязательно</i></span><textarea rows={6} value={generationFocus} onChange={(e) => setGenerationFocus(e.target.value)} placeholder="Например: компьютерное зрение; веб-системы; открытые датасеты…"/></label>{busy === "generate" && generationProgress && <div className="generation-progress"><div className="generation-progress-head"><b>{generationProgress.stage === "similarity" ? "Проверка сходства" : "Генерация тем"}</b><span>{generationProgress.created || 0} / {generationProgress.total || requested}</span></div><div className="generation-progress-track"><i style={{ width: `${Math.min(100, Math.round(((generationProgress.created || 0) / Math.max(1, generationProgress.total || requested)) * 100))}%` }}/></div><small>{generationProgress.message || (generationProgress.stage === "similarity" ? "Проверяем темы…" : `Преподаватель ${generationProgress.completed_groups || 0} из ${generationProgress.total_groups || "…"}`)}</small></div>}<button className="btn primary glow generation-button" onClick={generateSelected} disabled={!selectedTeacherIds.length || busy === "generate" || busy === "generate-demo" || !mistralReady} title={!mistralReady ? "Сначала подключите и проверьте Mistral AI" : "Генерация только через Mistral AI"}>{busy === "generate" ? (generationProgress?.stage === "similarity" ? "Проверяем сходство…" : `AI-генерация ${generationProgress?.created || 0}/${generationProgress?.total || requested}…`) : `✦ Mistral AI: ${requested || 0} тем`}</button><button className="btn secondary demo-generation-button" onClick={generateDemo} disabled={!selectedTeacherIds.length || busy === "generate" || busy === "generate-demo"}>{busy === "generate-demo" ? "Демо-генерация…" : `⚙ Демо без ИИ: ${requested || 0} тем`}</button></aside>
             </div>}
           </>}
 
           {tab === "topics" && <>
             <div className="page-head"><div><div className="eyebrow">Открытый набор {currentBatch ? `#${currentBatch.id}` : ""}</div><h1>Сгенерированные темы</h1>{currentBatch && currentBatch.id !== latestBatch?.id && <p className="history-open-note">Открыт архивный набор от {new Date(currentBatch.created_at).toLocaleString("ru-RU")}.</p>}</div><div className="head-actions"><button className="btn secondary" onClick={() => setTab("history")}>◷ История наборов</button><button className="btn secondary" onClick={regenerateRed} disabled={busy === "regen-red" || red === 0}>↻ Перегенерировать красные</button><button className="btn primary" onClick={approveAll} disabled={!topics.some((t) => t.status === "draft")}>{busy === "approve-all" ? "Утверждаем…" : "✓ Утвердить все"}</button></div></div>
             {currentBatch?.focus && <div className="batch-focus"><b>Фокус:</b> {currentBatch.focus}</div>}
-            <div className="toolbar"><select value={filterTeacher} onChange={(e) => setFilterTeacher(e.target.value === "all" ? "all" : Number(e.target.value))}><option value="all">Все преподаватели</option>{teachers.map((t) => <option value={t.id} key={t.id}>{t.full_name}</option>)}</select><select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}><option value="all">Все статусы</option><option value="draft">Черновики</option><option value="approved">Утверждённые</option><option value="rejected">Отклонённые</option></select><div className="legend"><span><i className="sgreen"/>0–44 низкое</span><span><i className="syellow"/>45–69 проверить</span><span><i className="sred"/>70–100 высокое</span></div></div>
-            {!topics.length ? <div className="empty"><div className="empty-icon">✦</div><h3>В наборе тем нет</h3><button className="btn primary" onClick={() => setTab("generation")}>Новая генерация</button></div> : <div className="topic-table-wrap"><table className="topic-table dual-sim-table"><thead><tr><th>Преподаватель</th><th>Конкретная тема ВКР</th><th title="Только исторические темы этого преподавателя; исходная готовая тема исключается">Сходство с прошлыми</th><th title="Историческая база ВКР + другие темы текущего набора">Сходство по всей базе</th><th>Статус</th><th></th></tr></thead><tbody>{filteredTopics.map((topic) => <tr key={topic.id} className={topic.status === "rejected" ? "muted-row" : ""}><td><b>{topic.teacher_name}</b><small>{topic.teacher_contact || "контакт не указан"}</small></td><td><div className="topic-title">{topic.title}{topic.manual_edit && <span className="manual">изменено</span>}</div>{topic.rationale && <div className="rationale">{topic.rationale}</div>}{topic.teacher_closest_topic && <details className="closest"><summary>Ближайшая прошлая тема преподавателя</summary><p>{topic.teacher_closest_topic}</p></details>}{topic.global_closest_topic && <details className="closest"><summary>Ближайшая тема по всей базе</summary><p>{topic.global_closest_teacher && <b>{topic.global_closest_teacher}: </b>}{topic.global_closest_topic}</p></details>}</td><td><div className={`score ${scoreClass(topic.teacher_similarity_score, topic.teacher_similarity_method)}`}><b>{scoreValue(topic.teacher_similarity_score, topic.teacher_similarity_method)}</b><span>{scoreText(topic.teacher_similarity_score, topic.teacher_similarity_method)}</span></div></td><td><div className={`score ${scoreClass(topic.global_similarity_score, topic.global_similarity_method)}`}><b>{scoreValue(topic.global_similarity_score, topic.global_similarity_method)}</b><span>{scoreText(topic.global_similarity_score, topic.global_similarity_method)}</span></div></td><td><span className={`status ${topic.status}`}>{topic.status === "draft" ? "Черновик" : topic.status === "approved" ? "Утверждена" : "Отклонена"}</span></td><td><div className="row-actions"><button title="Редактировать" onClick={() => setEditTopic(topic)}>✎</button><button title="Перегенерировать" onClick={() => regenerate(topic)} disabled={busy === `regen-${topic.id}`}>{busy === `regen-${topic.id}` ? "…" : "↻"}</button>{topic.status !== "approved" ? <button className="approve" title="Утвердить" onClick={() => status(topic, "approved")}>✓</button> : <button title="Вернуть в черновик" onClick={() => status(topic, "draft")}>↶</button>}<button className="reject" title="Отклонить" onClick={() => status(topic, "rejected")}>×</button></div></td></tr>)}</tbody></table></div>}
+            <div className="toolbar"><select value={filterTeacher} onChange={(e) => setFilterTeacher(e.target.value === "all" ? "all" : Number(e.target.value))}><option value="all">Все преподаватели</option>{teachers.map((t) => <option value={t.id} key={t.id}>{t.full_name}</option>)}</select><select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}><option value="all">Все статусы</option><option value="draft">Черновики</option><option value="approved">Утверждённые</option><option value="rejected">Отклонённые</option></select><div className="legend"><span><i className="sgreen"/>низкий риск</span><span><i className="syellow"/>проверить</span><span><i className="sred"/>высокий риск</span><small title="Локальные embeddings: пороги 45/70; lexical fallback: 25/50">пороги зависят от метода</small></div></div>
+            {!topics.length ? <div className="empty"><div className="empty-icon">✦</div><h3>В наборе тем нет</h3><button className="btn primary" onClick={() => setTab("generation")}>Новая генерация</button></div> : <div className="topic-table-wrap"><table className="topic-table dual-sim-table"><thead><tr><th>Преподаватель</th><th>Конкретная тема ВКР</th><th title="Локальная постпроверка темы по research_areas и истории преподавателя">Профиль</th><th>Quality Gate</th><th title="Только исторические темы этого преподавателя; исходная готовая тема исключается">Сходство с прошлыми</th><th title="Другие темы этого же текущего набора">Внутри набора</th><th title="Историческая база ВКР + другие темы текущего набора">Сходство по всей базе</th><th>Статус</th><th></th></tr></thead><tbody>{filteredTopics.map((topic) => <tr key={topic.id} className={topic.status === "rejected" ? "muted-row" : ""}><td><b>{topic.teacher_name}</b><small>{topic.teacher_contact || "контакт не указан"}</small></td><td><div className="topic-source-line"><span className={`topic-source-badge ${topicSourceLabel(topic).cls}`} title={topicSourceLabel(topic).title}>{topicSourceLabel(topic).label}</span>{topic.generation_model && topic.generation_source === "mistral-ai" && <small>{topic.generation_model}</small>}</div><div className="topic-title">{topic.title}{topic.manual_edit && <span className="manual">изменено</span>}</div>{topic.rationale && <div className="rationale">{topic.rationale}</div>}{topic.teacher_closest_topic && <details className="closest"><summary>Ближайшая прошлая тема преподавателя</summary><p>{topic.teacher_closest_topic}</p></details>}{topic.global_closest_topic && <details className="closest"><summary>Ближайшая тема по всей базе</summary><p>{topic.global_closest_teacher && <b>{topic.global_closest_teacher}: </b>}{topic.global_closest_topic}</p></details>}</td><td><div className={`score ${profileClass(topic.profile_relevance_score)}`}><b>{Math.round(topic.profile_relevance_score)}/100</b><span>{profileText(topic.profile_relevance_score)}</span></div>{topic.matched_research_areas?.length > 0 && <small className="profile-areas">{topic.matched_research_areas.join(" · ")}</small>}{topic.foreign_profile_directions?.length > 0 && <small className="profile-areas profile-warning">чужое направление: {topic.foreign_profile_directions.join(" · ")}</small>}</td><td><span className={`quality-gate ${qualityLabel(topic).cls}`}>{qualityLabel(topic).label}</span>{topic.quality_reasons?.length > 0 && <details className="closest"><summary>Причины</summary><p>{topic.quality_reasons.join("; ")}</p></details>}</td><td><div className={`score ${scoreClass(topic.teacher_similarity_score, topic.teacher_similarity_method)}`} title={`Метод: ${topic.teacher_similarity_method}`}><b>{scoreValue(topic.teacher_similarity_score, topic.teacher_similarity_method)}</b><span>{scoreText(topic.teacher_similarity_score, topic.teacher_similarity_method)}</span></div></td><td><div className={`score ${scoreClass(topic.batch_similarity_score, topic.batch_similarity_method)}`} title={`Метод: ${topic.batch_similarity_method}`}><b>{scoreValue(topic.batch_similarity_score, topic.batch_similarity_method)}</b><span>{scoreText(topic.batch_similarity_score, topic.batch_similarity_method)}</span></div>{topic.batch_closest_topic && <details className="closest"><summary>Ближайшая в наборе</summary><p>{topic.batch_closest_teacher && <b>{topic.batch_closest_teacher}: </b>}{topic.batch_closest_topic}</p></details>}</td><td><div className={`score ${scoreClass(topic.global_similarity_score, topic.global_similarity_method)}`} title={`Метод: ${topic.global_similarity_method}`}><b>{scoreValue(topic.global_similarity_score, topic.global_similarity_method)}</b><span>{scoreText(topic.global_similarity_score, topic.global_similarity_method)}</span></div></td><td><span className={`status ${topic.status}`}>{topic.status === "draft" ? "Черновик" : topic.status === "approved" ? "Утверждена" : "Отклонена"}</span></td><td><div className="row-actions"><button title="Редактировать" onClick={() => setEditTopic(topic)}>✎</button><button title="Перегенерировать" onClick={() => regenerate(topic)} disabled={busy === `regen-${topic.id}`}>{busy === `regen-${topic.id}` ? "…" : "↻"}</button>{topic.status !== "approved" ? <button className="approve" title="Утвердить" onClick={() => status(topic, "approved")}>✓</button> : <button title="Вернуть в черновик" onClick={() => status(topic, "draft")}>↶</button>}<button className="reject" title="Отклонить" onClick={() => status(topic, "rejected")}>×</button></div></td></tr>)}</tbody></table></div>}
             <div className="bottom-actions"><span>Утверждено <b>{approved}</b> из {topics.filter((t) => t.status !== "rejected").length}</span><button className="btn primary" onClick={() => setTab("publish")}>Публикация →</button></div>
           </>}
 

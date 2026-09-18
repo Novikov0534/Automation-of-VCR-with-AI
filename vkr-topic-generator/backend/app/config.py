@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
 
     mistral_api_key: str | None = None
-    mistral_chat_model: str = "mistral-small-latest"
+    mistral_chat_model: str = "ministral-8b-2512"
     mistral_embedding_model: str = "mistral-embed"
 
     google_service_account_json: str | None = None

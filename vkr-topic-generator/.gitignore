@@ -1,0 +1,10 @@
+.env
+.env.local
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+.next/
+*.db
+.DS_Store
+*.xlsx

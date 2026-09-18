@@ -19,9 +19,13 @@ services:
       DATABASE_URL: postgresql+psycopg://vkr:vkr@db:5432/vkr
       CORS_ORIGINS: http://localhost:3000
       MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
-      MISTRAL_CHAT_MODEL: ${MISTRAL_CHAT_MODEL:-mistral-small-latest}
+      MISTRAL_CHAT_MODEL: ${MISTRAL_CHAT_MODEL:-ministral-8b-2512}
+      MISTRAL_ALLOW_SMALL_FALLBACK: ${MISTRAL_ALLOW_SMALL_FALLBACK:-false}
       MISTRAL_EMBEDDING_MODEL: ${MISTRAL_EMBEDDING_MODEL:-mistral-embed}
       DEMO_MODE: ${DEMO_MODE:-true}
+      LOCAL_EMBEDDING_ENABLED: ${LOCAL_EMBEDDING_ENABLED:-true}
+      LOCAL_EMBEDDING_MODEL: ${LOCAL_EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      LOCAL_EMBEDDING_CACHE_DIR: /models/fastembed
       GOOGLE_SERVICE_ACCOUNT_JSON: ${GOOGLE_SERVICE_ACCOUNT_JSON:-}
       GOOGLE_SHARE_WITH_EMAIL: ${GOOGLE_SHARE_WITH_EMAIL:-}
     depends_on:
@@ -29,6 +33,8 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - vkr_models:/models
 
   frontend:
     build:
@@ -43,3 +49,4 @@ services:
 
 volumes:
   vkr_postgres:
+  vkr_models:

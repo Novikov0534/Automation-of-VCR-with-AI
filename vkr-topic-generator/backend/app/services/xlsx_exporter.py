@@ -6,6 +6,12 @@ from ..utils import teacher_table_name
 
 
 def build_topics_xlsx(topics) -> bytes:
+    """Export the approved VKR list in the exact publication format.
+
+    The publication table intentionally contains only the three columns
+    required by the UI/specification. Quality Gate/provenance data stays
+    inside the application and is not mixed into the final student table.
+    """
     buffer = BytesIO()
     workbook = xlsxwriter.Workbook(buffer, {"in_memory": True})
     worksheet = workbook.add_worksheet("Темы ВКР")
@@ -14,7 +20,7 @@ def build_topics_xlsx(topics) -> bytes:
     wrap = workbook.add_format({"text_wrap": True, "valign": "top"})
     top = workbook.add_format({"valign": "top"})
 
-    headers = ["Преподаватель", "Тема", "ФИО студента", "Контакты преподавателя"]
+    headers = ["Преподаватель", "Тема", "ФИО студента"]
     for col, value in enumerate(headers):
         worksheet.write(0, col, value, header)
 
@@ -22,12 +28,10 @@ def build_topics_xlsx(topics) -> bytes:
         worksheet.write(row, 0, teacher_table_name(topic.teacher.full_name, topic.teacher.position), top)
         worksheet.write(row, 1, topic.title, wrap)
         worksheet.write(row, 2, "", top)
-        worksheet.write(row, 3, topic.teacher.contact_text, wrap)
 
     worksheet.set_column("A:A", 28)
     worksheet.set_column("B:B", 85)
     worksheet.set_column("C:C", 28)
-    worksheet.set_column("D:D", 38)
     worksheet.freeze_panes(1, 0)
     worksheet.autofilter(0, 0, max(1, len(topics)), len(headers) - 1)
     workbook.close()

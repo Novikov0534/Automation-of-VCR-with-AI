@@ -73,6 +73,15 @@ class GeneratedTopic(Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
     keywords: Mapped[list] = mapped_column(JSON, default=list)
+    generation_source: Mapped[str] = mapped_column(String(32), nullable=False, default="legacy")
+    generation_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Зафиксированный результат профильного Quality Gate. Для старых/ручных
+    # тем поля могут быть NULL и тогда score вычисляется на чтении.
+    profile_relevance_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    matched_research_areas: Mapped[list] = mapped_column(JSON, default=list)
+    profile_directions: Mapped[list] = mapped_column(JSON, default=list)
+    foreign_profile_directions: Mapped[list] = mapped_column(JSON, default=list)
+    profile_relevance_method: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
     # similarity_score оставлен как совместимое поле и равен глобальной похожести.
     similarity_score: Mapped[float] = mapped_column(Float, default=0.0)
@@ -82,9 +91,15 @@ class GeneratedTopic(Base):
     global_similarity_score: Mapped[float] = mapped_column(Float, default=0.0)
     global_closest_topic: Mapped[str | None] = mapped_column(Text, nullable=True)
     global_closest_teacher: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Отдельный сигнал только по другим темам текущего набора. Он позволяет
+    # отличить повтор внутри batch от совпадения с исторической базой.
+    batch_similarity_score: Mapped[float] = mapped_column(Float, default=0.0)
+    batch_closest_topic: Mapped[str | None] = mapped_column(Text, nullable=True)
+    batch_closest_teacher: Mapped[str | None] = mapped_column(String(255), nullable=True)
     similarity_method: Mapped[str] = mapped_column(String(50), default="embeddings")
     teacher_similarity_method: Mapped[str] = mapped_column(String(50), default="none")
     global_similarity_method: Mapped[str] = mapped_column(String(50), default="none")
+    batch_similarity_method: Mapped[str] = mapped_column(String(50), default="none")
 
     # Если тема в demo-режиме была перенесена дословно из списка ранее
     # одобренных тем преподавателя, здесь сохраняется конкретный источник.

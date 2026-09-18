@@ -65,3 +65,77 @@ def test_multiple_research_areas_are_combined():
     categories = {item.keywords[0] for item in result}
     assert "Робототехника и IoT" in categories
     assert "Компьютерное зрение" in categories
+
+
+def test_profile_postvalidation_catches_wrong_teacher_assignment():
+    from app.services.research_taxonomy import profile_relevance_details
+
+    wrong = profile_relevance_details(
+        "Разработка системы распознавания жестов для людей с ограниченными возможностями",
+        research_areas=["Компьютерное зрение", "Видеоаналитика", "Распознавание изображений"],
+    )
+    right = profile_relevance_details(
+        "Разработка приложения распознавания жестового языка для пользователей с нарушением слуха",
+        research_areas=["Ассистивные технологии", "Разработка обучающих игр"],
+    )
+    assert wrong.score < 25
+    assert right.score >= 45
+    assert "Ассистивные технологии" in right.matched_research_areas
+
+
+def test_generic_edtech_is_weak_for_assistive_game_profile():
+    from app.services.research_taxonomy import profile_relevance_details
+
+    generic = profile_relevance_details(
+        "Разработка системы автоматической генерации учебных презентаций для преподавателей",
+        research_areas=["Ассистивные технологии", "Разработка обучающих игр"],
+    )
+    game = profile_relevance_details(
+        "Разработка игрового тренажера для обучения кибергигиене с адаптивными сценариями и системой прогресса",
+        research_areas=["Ассистивные технологии", "Разработка обучающих игр"],
+    )
+    assert generic.score < 25
+    assert game.score > generic.score + 30
+
+
+def test_history_detects_multiagent_signature():
+    from app.services.research_taxonomy import dominant_profile_directions
+
+    directions = dominant_profile_directions(
+        research_areas=["Системный анализ", "Системы искусственного интеллекта"],
+        past_topics=[
+            "Многоагентная система автоматизации и адаптивного управления бизнес-процессами университета",
+            "Многоагентная система накопления результатов студенческих практик",
+            "Многоагентная система глубинного изучения математических дисциплин",
+        ],
+    )
+    assert "Многоагентные системы" in directions[:3]
+
+
+def test_batch14_assistive_wording_routes_away_from_cv_only_profile():
+    from app.services.research_taxonomy import profile_relevance_details
+
+    title = "Разработка системы распознавания жестов для людей с ограниченными возможностями на основе компьютерного зрения"
+    cv_only = profile_relevance_details(
+        title,
+        research_areas=["Компьютерное зрение", "Видеоаналитика", "Распознавание изображений"],
+    )
+    assistive = profile_relevance_details(
+        title,
+        research_areas=["Ассистивные технологии", "Разработка обучающих игр"],
+    )
+    assert "Ассистивные технологии" in cv_only.foreign_directions
+    assert cv_only.score < 45
+    assert assistive.score >= 45
+    assert "Ассистивные технологии" in assistive.matched_research_areas
+
+
+def test_inflected_educational_game_matches_shabalina_area():
+    from app.services.research_taxonomy import profile_relevance_details
+
+    result = profile_relevance_details(
+        "Разработка адаптивной обучающей игры для изучения алгоритмизации с динамической настройкой сложности",
+        research_areas=["Ассистивные технологии", "Разработка обучающих игр"],
+    )
+    assert result.score >= 45
+    assert "Разработка обучающих игр" in result.matched_research_areas

@@ -6,9 +6,12 @@
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from typing import Iterable
+
+from .local_embeddings import LocalEmbeddingProvider
 
 
 @dataclass(frozen=True)
@@ -23,7 +26,7 @@ RESEARCH_DIRECTIONS: tuple[ResearchDirection, ...] = (
     ResearchDirection(
         "Системы искусственного интеллекта",
         ("искусственный интеллект", "системы искусственного интеллекта", "система искусственного интеллекта", "системы искусственный интеллект", "ии", "ai"),
-        ("интеллектуальная система", "интеллектуальный анализ", "интеллектуальная обработка", "экспертная система", "машинное обучение", "нейросеть"),
+        ("интеллектуальная система", "интеллектуальный анализ", "интеллектуальная обработка", "экспертная система", "машинное обучение", "нейросеть", "классификация", "прогнозирование", "рекомендательная система", "генерация", "адаптивная система", "многоагентная система"),
         {
             "Анализ данных и прогнозирование": 1.6,
             "Обработка естественного языка": 1.15,
@@ -44,9 +47,20 @@ RESEARCH_DIRECTIONS: tuple[ResearchDirection, ...] = (
         },
     ),
     ResearchDirection(
+        "Многоагентные системы",
+        ("многоагентные системы", "многоагентная система", "мультиагентные системы", "multi-agent", "multiagent"),
+        ("многоагентная система", "мультиагентная система", "агентное взаимодействие", "координация агентов", "автономные агенты", "агентная архитектура"),
+        {
+            "Веб-платформы и информационные системы": 0.65,
+            "Алгоритмические и оптимизационные задачи": 0.55,
+            "Прикладные системы: финансы и образование": 0.45,
+            "Игры, симуляции и генеративные системы": 0.35,
+        },
+    ),
+    ResearchDirection(
         "Системный анализ",
         ("системный анализ", "анализ систем"),
-        ("моделирование систем", "бизнес-процессы", "принятие решений", "управление процессами", "анализ требований", "оптимизация процессов", "жизненный цикл"),
+        ("моделирование систем", "бизнес-процессы", "принятие решений", "управление процессами", "анализ требований", "оптимизация процессов", "жизненный цикл", "мониторинг качества", "управление проектами", "управление историей", "зависимости", "автоматизация процессов", "учебные проекты", "портфель проектов", "риски", "распределение ресурсов", "согласование", "контроль сроков", "узкие места", "приоритизация"),
         {
             "Веб-платформы и информационные системы": 1.4,
             "Алгоритмические и оптимизационные задачи": 0.9,
@@ -57,7 +71,7 @@ RESEARCH_DIRECTIONS: tuple[ResearchDirection, ...] = (
     ResearchDirection(
         "Компьютерное зрение",
         ("компьютерное зрение", "computer vision", "распознавание изображений", "обработка изображений"),
-        ("изображение", "фотография", "детекция объектов", "сегментация", "классификация изображений", "визуальные признаки", "снимки", "камера"),
+        ("изображение", "фотография", "детекция объектов", "сегментация", "классификация изображений", "визуальные признаки", "снимки", "камера", "видеоаналитика", "обнаружение дефектов"),
         {"Компьютерное зрение": 2.8, "Доступность и мобильные технологии": 0.35},
     ),
     ResearchDirection(
@@ -93,7 +107,7 @@ RESEARCH_DIRECTIONS: tuple[ResearchDirection, ...] = (
     ResearchDirection(
         "Ассистивные технологии",
         ("ассистивные технологии", "assistive technologies", "цифровая доступность", "доступные технологии"),
-        ("доступность", "овз", "незрячие", "слабовидящие", "нарушение зрения", "нарушение слуха", "глухие", "жестовый язык", "субтитры", "голосовое сопровождение", "альтернативный текст", "скринридер"),
+        ("доступность", "овз", "ограниченные возможности", "ограниченными возможностями", "люди с ограниченными возможностями", "инвалидность", "специальные потребности", "незрячие", "слабовидящие", "нарушение зрения", "нарушение слуха", "глухие", "жестовый язык", "субтитры", "голосовое сопровождение", "альтернативный текст", "скринридер"),
         {
             # Категория содержит и обычные мобильные темы, поэтому общий бонус
             # умеренный: реальные assistive-темы должны выигрывать за счёт
@@ -125,7 +139,7 @@ RESEARCH_DIRECTIONS: tuple[ResearchDirection, ...] = (
     ResearchDirection(
         "Информационные системы и веб-технологии",
         ("информационные системы", "веб-технологии", "web development", "веб-разработка"),
-        ("информационная система", "веб-система", "веб-приложение", "веб-сервис", "api", "автоматизация", "платформа", "личный кабинет", "workflow"),
+        ("информационная система", "веб-система", "веб-приложение", "веб-сервис", "веб-платформа", "api", "автоматизация", "платформа", "личный кабинет", "workflow", "управление проектами"),
         {"Веб-платформы и информационные системы": 2.75, "Прикладные системы: финансы и образование": 0.45},
     ),
     ResearchDirection(
@@ -166,7 +180,7 @@ RESEARCH_DIRECTIONS: tuple[ResearchDirection, ...] = (
     ),
 )
 
-RESEARCH_AREA_NAMES: tuple[str, ...] = tuple(item.name for item in RESEARCH_DIRECTIONS)
+RESEARCH_AREA_NAMES: tuple[str, ...] = tuple(item.name for item in RESEARCH_DIRECTIONS if item.name != "Многоагентные системы")
 
 _STOP_TOKENS = {
     "разработка", "разработки", "система", "системы", "систем", "технологии", "технологий",
@@ -193,7 +207,7 @@ def _token_key(token: str) -> str:
             "ение", "ения", "ений",
             "ие", "ые", "ое", "ая", "яя", "ий", "ый", "ой",
             "их", "ых", "ам", "ям", "ом", "ем", "ым", "им", "ов", "ев",
-            "ия", "ию", "ью",
+            "ия", "ию", "ью", "ей",
             "ы", "и", "а", "я", "у", "ю", "е", "о", "ь",
         )
         for _ in range(2):
@@ -290,3 +304,273 @@ def local_topic_relevance(
         score += min(term_matches, 5) * 1.05 * min(strength, 5.0)
 
     return score
+
+
+@dataclass(frozen=True)
+class ProfileRelevanceResult:
+    score: float
+    matched_research_areas: tuple[str, ...]
+    matched_directions: tuple[str, ...]
+    dominant_profile_directions: tuple[str, ...]
+    foreign_directions: tuple[str, ...] = ()
+
+
+def _direction_text_score(text: str, direction: ResearchDirection) -> float:
+    """Насколько текст выражает конкретное направление (0..8+).
+
+    Эта функция намеренно чувствительнее ``direction_strengths``: для короткой
+    темы достаточно одного характерного термина, тогда как профиль строится по
+    нескольким более надёжным источникам.
+    """
+    value = (text or "").strip()
+    if not value:
+        return 0.0
+    score = 0.0
+    tokens = semantic_tokens(value)
+    aliases = (direction.name, *direction.aliases)
+    if any(_phrase_present(value, alias) for alias in aliases):
+        score += 4.5
+    else:
+        # Формы вроде «видеоаналитики»/«информационной системы» не должны
+        # теряться из-за точного phrase-match: сравниваем нормализованные корни.
+        for alias in aliases:
+            alias_tokens = semantic_tokens(alias)
+            if alias_tokens and len(tokens & alias_tokens) / len(alias_tokens) >= 0.75:
+                score += 2.6
+                break
+    for term in direction.terms:
+        term_tokens = semantic_tokens(term)
+        if not term_tokens:
+            continue
+        if _phrase_present(value, term):
+            score += 1.8
+        else:
+            overlap = len(tokens & term_tokens) / max(1, len(term_tokens))
+            if overlap >= 0.66:
+                score += 0.8 * overlap
+    return score
+
+
+def topic_direction_scores(text: str) -> dict[str, float]:
+    return {
+        direction.name: score
+        for direction in RESEARCH_DIRECTIONS
+        if (score := _direction_text_score(text, direction)) > 0
+    }
+
+
+def profile_direction_scores(
+    *,
+    research_areas: Iterable[str] = (),
+    past_topics: Iterable[str] = (),
+    focus: str | None = None,
+) -> dict[str, float]:
+    """Строит локальный профиль: заявленные области + повторяющиеся мотивы истории."""
+    result: dict[str, float] = {}
+    by_name = {item.name: item for item in RESEARCH_DIRECTIONS}
+
+    for area in research_areas:
+        area = (area or "").strip()
+        if not area:
+            continue
+        area_tokens = semantic_tokens(area)
+        direct_matches: list[tuple[float, ResearchDirection]] = []
+        for direction in RESEARCH_DIRECTIONS:
+            best = 0.0
+            for alias in (direction.name, *direction.aliases):
+                alias_tokens = semantic_tokens(alias)
+                if not alias_tokens:
+                    continue
+                if _phrase_present(area, alias):
+                    best = max(best, 1.0)
+                else:
+                    best = max(best, len(area_tokens & alias_tokens) / len(alias_tokens))
+            if best >= 0.74:
+                direct_matches.append((best, direction))
+        if direct_matches:
+            best_score = max(score for score, _ in direct_matches)
+            # Явное research_area не размазываем по случайно похожим направлениям.
+            for match_score, direction in direct_matches:
+                if match_score >= best_score - 0.08:
+                    result[direction.name] = result.get(direction.name, 0.0) + 5.5 * match_score
+            continue
+
+        strengths = direction_strengths([(area, 1.0)])
+        if strengths:
+            for name, value in strengths.items():
+                result[name] = result.get(name, 0.0) + max(3.0, value * 1.4)
+
+    # История нужна прежде всего для методологической "подписи": повторяющееся
+    # направление (например, многоагентность) быстро накапливает вес.
+    for title in past_topics:
+        for name, value in topic_direction_scores(title or "").items():
+            result[name] = result.get(name, 0.0) + min(3.5, value) * 0.75
+
+    if focus and focus.strip():
+        for name, value in topic_direction_scores(focus).items():
+            result[name] = result.get(name, 0.0) + min(4.0, value) * 0.9
+
+    return result
+
+
+def dominant_profile_directions(
+    *, research_areas: Iterable[str] = (), past_topics: Iterable[str] = (), focus: str | None = None, limit: int = 5
+) -> list[str]:
+    scores = profile_direction_scores(research_areas=research_areas, past_topics=past_topics, focus=focus)
+    return [name for name, _ in sorted(scores.items(), key=lambda item: item[1], reverse=True)[:limit]]
+
+
+
+# Близкие направления считаются одной тематической семьёй при поиске
+# «чужой специализации». Это не даёт, например, пометить видеоаналитику как
+# чужую для преподавателя компьютерного зрения или обучающую игру как чужую
+# для профиля разработки обучающих игр.
+_DIRECTION_FAMILIES: tuple[frozenset[str], ...] = (
+    frozenset({"Компьютерное зрение", "Видеоаналитика"}),
+    frozenset({"Мультимедийные и игровые технологии", "Разработка обучающих игр"}),
+    frozenset({"Системы искусственного интеллекта", "Машинное обучение и анализ данных", "Многоагентные системы"}),
+    frozenset({"Компьютерная лингвистика и NLP", "Чат-боты и диалоговые системы", "Речевые и аудиотехнологии"}),
+    frozenset({"Системный анализ", "Информационные системы и веб-технологии", "Базы данных и управление данными"}),
+    frozenset({"Компьютерные сети и распределённые системы", "Кибербезопасность"}),
+    frozenset({"Робототехника", "Интернет вещей и встраиваемые системы"}),
+)
+
+def _direction_owned_or_related(name: str, owned: set[str]) -> bool:
+    if name in owned:
+        return True
+    return any(name in family and bool(owned & family) for family in _DIRECTION_FAMILIES)
+
+def _vector_cosine(a: list[float], b: list[float]) -> float:
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    if not na or not nb:
+        return 0.0
+    return dot / (na * nb)
+
+
+def _semantic_area_signal(text: str, areas: list[str]) -> tuple[float, list[str]]:
+    """Дополнительная семантическая проверка research_areas локальными embeddings.
+
+    Не запускает скачивание модели самостоятельно: используется только если
+    SimilarityService уже прогрел локальную embedding-модель в этом процессе.
+    Это исправляет случаи, где таксономия не знает пользовательскую формулировку
+    области (например, инженерная механика/киберфизические системы).
+    """
+    if not text.strip() or not areas or not LocalEmbeddingProvider.ready():
+        return 0.0, []
+    vectors = LocalEmbeddingProvider.embed_map([text, *areas])
+    if not vectors or text not in vectors:
+        return 0.0, []
+    scores: list[tuple[str, float]] = []
+    for area in areas:
+        if area not in vectors:
+            continue
+        raw = _vector_cosine(vectors[text], vectors[area])
+        # Для multilingual MiniLM короткие названия областей имеют заметный
+        # базовый cosine даже без прямого совпадения. Нормируем 0.30..0.68 в 0..100.
+        normalized = max(0.0, min(100.0, (raw - 0.30) / 0.38 * 100.0))
+        scores.append((area, normalized))
+    if not scores:
+        return 0.0, []
+    scores.sort(key=lambda item: item[1], reverse=True)
+    best = scores[0][1]
+    matched = [area for area, value in scores if value >= 52.0]
+    return best, matched
+
+
+def profile_relevance_details(
+    title: str,
+    *,
+    rationale: str | None = None,
+    keywords: Iterable[str] = (),
+    research_areas: Iterable[str] = (),
+    past_topics: Iterable[str] = (),
+    focus: str | None = None,
+) -> ProfileRelevanceResult:
+    """Оценивает соответствие AI-темы профилю преподавателя в шкале 0..100.
+
+    В отличие от старого ``local_topic_relevance`` эта функция предназначена
+    именно для поствалидации ответов LLM и не зависит от категории demo-банка.
+    """
+    areas = [str(x).strip() for x in research_areas if str(x).strip()]
+    history = [str(x).strip() for x in past_topics if str(x).strip()]
+    aux_text = " ".join([rationale or "", " ".join(str(x) for x in keywords if str(x).strip())])
+    title_scores = topic_direction_scores(title or "")
+    topic_scores = dict(title_scores)
+    for name, value in topic_direction_scores(aux_text).items():
+        topic_scores[name] = topic_scores.get(name, 0.0) + value * 0.22
+    text = " ".join([title or "", aux_text])
+    profile_scores = profile_direction_scores(research_areas=areas, past_topics=history, focus=focus)
+
+    dominant = [name for name, _ in sorted(profile_scores.items(), key=lambda item: item[1], reverse=True)[:5]]
+    if not profile_scores:
+        # Нет профиля — нельзя честно назвать тему нерелевантной.
+        return ProfileRelevanceResult(60.0, tuple(), tuple(topic_scores), tuple(), tuple())
+
+    keys = set(profile_scores) | set(topic_scores)
+    dot = sum(profile_scores.get(k, 0.0) * topic_scores.get(k, 0.0) for k in keys)
+    pn = sum(v * v for v in profile_scores.values()) ** 0.5
+    tn = sum(v * v for v in topic_scores.values()) ** 0.5
+    direction_cosine = dot / (pn * tn) if pn and tn else 0.0
+
+    matched_areas: list[str] = []
+    area_strength = 0.0
+    for area in areas:
+        inferred = direction_strengths([(area, 1.0)])
+        names = list(inferred)
+        if not names:
+            names = [d.name for d in RESEARCH_DIRECTIONS if _direction_text_score(area, d) > 0]
+        best = max((topic_scores.get(name, 0.0) for name in names), default=0.0)
+        if best >= 0.75:
+            matched_areas.append(area)
+        area_strength = max(area_strength, min(1.0, best / 1.2))
+
+    # Дополнительный текстовый сигнал нужен для пользовательских research_areas,
+    # которых пока нет в таксономии.
+    title_tokens = semantic_tokens(text)
+    profile_tokens = semantic_tokens(" ".join([*areas, *history[-8:], focus or ""]))
+    overlap = len(title_tokens & profile_tokens) / max(1, min(8, len(profile_tokens)))
+    token_signal = min(1.0, overlap * 2.0)
+
+    score = 72.0 * direction_cosine + 20.0 * area_strength + 8.0 * token_signal
+
+    # v33: семантика research_areas через уже загруженную локальную embedding-модель.
+    # Берём максимум, а не среднее: одной теме достаточно честно соответствовать
+    # хотя бы одной области преподавателя; покрытие всех областей контролируется
+    # уже на уровне набора тем.
+    semantic_text = " ".join([title or "", rationale or "", " ".join(str(x) for x in keywords if str(x).strip())]).strip()
+    semantic_score, semantic_areas = _semantic_area_signal(semantic_text, areas)
+    if semantic_score:
+        score = max(score, semantic_score)
+        for area in semantic_areas:
+            if area not in matched_areas:
+                matched_areas.append(area)
+
+    # Отдельно ловим «тема по технологии подходит, но предметная специализация
+    # ушла к другому преподавателю». Пример batch_14: компьютерное зрение +
+    # ассистивная задача у преподавателя без ассистивного профиля.
+    explicit_profile = profile_direction_scores(research_areas=areas, past_topics=(), focus=None)
+    owned = {name for name, value in explicit_profile.items() if value >= 2.5}
+    if not owned:
+        owned = {name for name, value in profile_scores.items() if value >= 2.5}
+    strongest_owned = max((topic_scores.get(name, 0.0) for name in owned), default=0.0)
+    foreign = [
+        name for name, value in topic_scores.items()
+        if not _direction_owned_or_related(name, owned) and value >= 1.8 and value > strongest_owned * 1.05
+    ]
+    foreign.sort(key=lambda name: topic_scores.get(name, 0.0), reverse=True)
+    if foreign:
+        # Не зануляем междисциплинарную тему, а делаем её явным warning.
+        # В генераторе такой кандидат отклоняется, если итоговый score < 45.
+        score -= min(28.0, 8.0 * topic_scores[foreign[0]])
+
+    return ProfileRelevanceResult(
+        round(max(0.0, min(100.0, score)), 1),
+        tuple(matched_areas),
+        tuple(name for name, _ in sorted(topic_scores.items(), key=lambda item: item[1], reverse=True)[:5]),
+        tuple(dominant),
+        tuple(foreign[:3]),
+    )
